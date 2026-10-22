@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>__021_TITLE__ Roadmap</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Kalam:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a whiteboard you scroll down — the wall, the A3 strip, the flipchart columns, the brief — with a progress rail at the side */
+:root{
+  --bg:#EDF0F3; --surface:#FFFFFF; --ink:#141C26; --muted:#56636F; --line:#D2D9E0;
+  --accent:#1F4FE0; --flag:#D93A3F; --ok:#1E8A4C;
+  --yellow:#FFE45C; --blue:#9AD6FF; --pink:#FF9DBB; --green:#A6E8A8; --note-ink:#1D1B16;
+  --f-display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body:"Instrument Sans", "Helvetica Neue", system-ui, sans-serif;
+  --f-hand:"Kalam", "Comic Sans MS", "Marker Felt", cursive;
+  --f-mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+  --shadow:0 1px 1px rgba(20,28,38,.08), 0 6px 14px -6px rgba(20,28,38,.28);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1319; --surface:#161D26; --ink:#E7ECF1; --muted:#97A4B1; --line:#2A3542;
+  --accent:#7D9CFF; --flag:#FF6E72; --ok:#5BD08B;
+  --shadow:0 1px 1px rgba(0,0,0,.4), 0 8px 18px -6px rgba(0,0,0,.7); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1319; --surface:#161D26; --ink:#E7ECF1; --muted:#97A4B1; --line:#2A3542;
+  --accent:#7D9CFF; --flag:#FF6E72; --ok:#5BD08B;
+  --shadow:0 1px 1px rgba(0,0,0,.4), 0 8px 18px -6px rgba(0,0,0,.7); color-scheme:dark}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font:16px/1.55 var(--f-body);
+  background-image:radial-gradient(color-mix(in srgb,var(--ink) 9%,transparent) 1px,transparent 1px);
+  background-size:22px 22px;overflow-x:hidden}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+section{padding-block:72px 24px;scroll-margin-top:24px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:-.02em}
+h2{font-size:clamp(28px,4.4vw,44px);line-height:1.05;font-weight:800}
+h3{font-size:20px;font-weight:700}
+p{margin:0}
+.eyebrow{font:600 12px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;gap:10px;align-items:center;margin-bottom:14px}
+.eyebrow b{color:var(--accent);font-weight:600}
+.lede{max-width:62ch;color:var(--muted);margin-top:12px;font-size:17px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.head{display:grid;gap:4px;margin-bottom:28px}
+
+/* post-it */
+.note{--c:var(--yellow);background:var(--c);color:var(--note-ink);font:400 17px/1.3 var(--f-hand);
+  padding:14px 14px 18px;box-shadow:var(--shadow);position:relative;transform:rotate(var(--r,0deg));
+  border-radius:2px 2px 6px 2px;min-width:0}
+.note::before{content:"";position:absolute;inset:0 0 auto 0;height:12px;background:rgba(0,0,0,.05)}
+.note .tag{font:600 11px/1 var(--f-mono);letter-spacing:.06em;opacity:.7;display:block;margin-bottom:6px}
+.note.y{--c:var(--yellow)} .note.b{--c:var(--blue)} .note.p{--c:var(--pink)} .note.g{--c:var(--green)}
+.note.out{opacity:.55}
+.dot{position:absolute;top:-8px;right:-8px;width:24px;height:24px;border-radius:50%;background:var(--flag);box-shadow:0 2px 4px rgba(0,0,0,.25)}
+
+/* hero */
+.hero{position:relative;padding-block:28px 40px;min-height:600px;display:grid;align-items:end}
+#scene{position:absolute;inset:0;z-index:0}
+#scene canvas{display:block;width:100%!important;height:100%!important}
+.hero-inner{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:32px;align-items:end}
+.brand{font:600 12px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;gap:12px;position:relative;z-index:1;margin-bottom:auto;align-self:start}
+.brand span:first-child b{color:var(--accent)}
+.hero h1{font-size:clamp(56px,11vw,132px);line-height:.9;font-weight:800}
+.hero .sub{font-size:clamp(18px,2.2vw,22px);margin-top:14px;max-width:30ch;text-shadow:0 0 12px var(--bg),0 0 4px var(--bg)}
+.hero .facts{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.chip{font:600 13px/1 var(--f-mono);padding:8px 10px;border:1px solid var(--line);background:color-mix(in srgb,var(--surface) 85%,transparent);border-radius:999px;backdrop-filter:blur(6px)}
+.chip b{color:var(--accent)}
+.hero .note{max-width:340px;justify-self:end;--r:2deg;font-size:19px}
+
+/* rail */
+.rail{position:fixed;right:max(14px,env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);z-index:20;display:grid;gap:10px;list-style:none;margin:0;padding:0}
+.rail a{display:flex;align-items:center;gap:8px;justify-content:flex-end;text-decoration:none;color:var(--muted);font:600 11px/1 var(--f-mono);letter-spacing:.06em}
+.rail a span{opacity:0;transform:translateX(6px);transition:.2s}
+.rail a i{width:10px;height:10px;border-radius:50%;border:2px solid var(--muted);transition:.2s}
+.rail a:hover span,.rail a.on span{opacity:1;transform:none}
+.rail a.on{color:var(--ink)} .rail a.on i{background:var(--accent);border-color:var(--accent);transform:scale(1.25)}
+.rail a:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.bar{position:fixed;inset:0 0 auto 0;height:calc(3px + env(safe-area-inset-top,0px));z-index:30;background:transparent;pointer-events:none}
+.bar i{display:block;height:100%;width:100%;transform-origin:0 50%;transform:scaleX(0);background:var(--accent)}
+@media (max-width:1240px){.rail{display:none}}
+
+/* wall */
+.wall{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:18px 14px}
+.col{display:grid;gap:12px;align-content:start}
+.col .note.b{font-size:15px;margin-left:10px}
+
+/* journey strip */
+.scroll-x{overflow-x:auto;padding-bottom:12px;margin-inline:-4px;padding-inline:4px}
+.strip{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:12px;min-width:960px;position:relative}
+.step{background:var(--surface);border:1.5px solid var(--ink);padding:12px;min-height:120px;display:grid;align-content:start;gap:6px;border-radius:3px}
+.step .n{font:700 28px/1 var(--f-display);color:var(--accent)}
+.step p{font-size:14px}
+.under{display:grid;gap:10px;margin-top:14px}
+.under .note{font-size:15px}
+.fix{font:600 12px/1.3 var(--f-mono);color:var(--ok);margin-top:4px}
+.strike{text-decoration:line-through;text-decoration-thickness:2px}
+#walker{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
+
+/* charts */
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;min-width:0}
+.panel h3{margin-bottom:4px}
+.panel .cap{color:var(--muted);font-size:14px;margin-bottom:12px}
+svg text{fill:currentColor}
+.chart{width:100%;height:auto;display:block;color:var(--ink)}
+
+/* argue table */
+table{border-collapse:collapse;width:100%;font-size:15px}
+th{font:600 11px/1 var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:left;padding:10px 12px;border-bottom:1.5px solid var(--ink)}
+td{padding:14px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+td.q{font-family:var(--f-hand);font-size:17px}
+.pill{display:inline-block;font:600 12px/1 var(--f-mono);padding:6px 8px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.pill.move{color:var(--accent)} .pill.keep{color:var(--ok)}
+.saves{font:600 15px/1 var(--f-mono);text-align:right;white-space:nowrap}
+
+/* flipchart */
+.flip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.fcol{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;display:grid;gap:12px;align-content:start;position:relative}
+.fcol.now{border:2px solid var(--accent)}
+.fcol header{display:grid;gap:2px;padding-bottom:10px;border-bottom:1.5px dashed var(--line)}
+.fcol header .s{font:600 11px/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.fcol header .s b{color:var(--accent)}
+.fcol header h3{font-size:22px}
+.fcol .on{font:500 12px/1.3 var(--f-mono);color:var(--muted)}
+.fcol .note{font-size:15px}
+.badge{position:absolute;top:-11px;left:14px;background:var(--accent);color:var(--surface);font:600 11px/1 var(--f-mono);padding:5px 8px;border-radius:4px;letter-spacing:.06em}
+
+/* stories */
+.stories{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px}
+.stories .note{font-size:15px}
+.done{margin-top:10px;padding-top:8px;border-top:1.5px dashed rgba(0,0,0,.25);font-size:14px}
+.done b{font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;display:block;margin-bottom:2px}
+
+/* unknowns */
+.unk{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.uc{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--flag);border-radius:6px;padding:16px;display:grid;gap:8px}
+.uc .k{font:600 11px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--flag)}
+.uc .t{font:500 12px/1.4 var(--f-mono);color:var(--muted)}
+
+/* brief */
+.brief{background:var(--surface);border:1.5px solid var(--ink);border-radius:4px;padding:28px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;position:relative}
+.brief h3{font-size:14px;font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px}
+.brief dl{margin:0;display:grid;gap:10px}
+.brief dt{font-weight:600}
+.brief dd{margin:0;color:var(--muted)}
+.brief ol{margin:0;padding-left:20px;display:grid;gap:8px}
+.brief ol small{display:block;color:var(--muted);font-size:13px}
+.copy{position:absolute;top:-16px;right:20px;font:600 13px/1 var(--f-mono);padding:9px 12px;background:var(--accent);color:var(--surface);border:0;border-radius:6px;cursor:pointer}
+.copy:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#brief-text{position:absolute;left:-9999px;width:1px;height:1px}
+
+/* log */
+details{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:4px 18px}
+summary{cursor:pointer;font-weight:600;padding:12px 0}
+summary:focus-visible{outline:2px solid var(--accent)}
+.log{list-style:none;margin:0 0 14px;padding:0;display:grid}
+.log li{display:grid;grid-template-columns:90px minmax(0,1fr);gap:14px;padding:12px 0;border-top:1px solid var(--line)}
+.log .when{font:500 12px/1.5 var(--f-mono);color:var(--muted)}
+.log .qq{font-weight:600}
+.log .aa{font-family:var(--f-hand);font-size:17px}
+.log .ev{font:600 10px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;margin-left:6px;padding:3px 5px;border-radius:3px;border:1px solid currentColor;vertical-align:2px}
+.log .ev.e{color:var(--ok)} .log .ev.a{color:var(--flag)}
+
+footer{padding-block:56px 72px;color:var(--muted);font:500 13px/1.5 var(--f-mono);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+
+@media (max-width:900px){
+  .hero-inner{grid-template-columns:minmax(0,1fr)}
+  .hero .note{justify-self:start}
+  .wall{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .two,.brief{grid-template-columns:minmax(0,1fr)}
+  .flip{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stories{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .unk{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:520px){
+  .flip,.stories{grid-template-columns:minmax(0,1fr)}
+  .hero{min-height:560px}
+  td,th{padding-inline:6px}
+  .log li{grid-template-columns:minmax(0,1fr);gap:4px}
+}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+@media print{
+  .rail,.bar,.copy,#scene{display:none} body{background:#fff}
+  section{break-inside:avoid-page;padding-block:28px}
+}
+</style>
+<style>
+:root{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+body{margin:0}
+.ev{font:600 10px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;padding:3px 5px;border-radius:3px;border:1px solid currentColor;margin-left:6px;vertical-align:2px;white-space:nowrap}
+.ev.a{color:var(--flag)} .ev.e{color:var(--ok)}
+.progress{display:inline-flex;gap:8px;align-items:center;font:600 12px/1 var(--f-mono);padding:8px 10px;border-radius:999px;background:var(--flag);color:#fff}
+.checks{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.checks li{display:flex;gap:8px;align-items:baseline}
+.checks .ok{color:var(--ok)} .checks .no{color:var(--flag)}
+.next{background:var(--ink);color:var(--bg);border-radius:10px;padding:28px;display:grid;gap:14px}
+.next h2{color:var(--bg)}
+.next ol{margin:0;padding-left:22px;display:grid;gap:8px;max-width:70ch}
+.next blockquote{margin:0;padding:14px 16px;border-left:3px solid var(--accent);background:color-mix(in srgb,var(--bg) 8%,transparent);font:500 14px/1.5 var(--f-mono)}
+.empty{color:var(--muted);font-style:italic}
+</style>
+</head>
+<body>
+<div class="bar" aria-hidden="true"><i id="bar"></i></div>
+<nav aria-label="Sections"><ul class="rail" id="rail">
+  <li><a href="#top"><span id="rail-name">Roadmap</span><i></i></a></li>
+  <li><a href="#wall"><span>The wall</span><i></i></a></li>
+  <li><a href="#journey"><span>The journey</span><i></i></a></li>
+  <li><a href="#size"><span>Size it</span><i></i></a></li>
+  <li><a href="#argue"><span>Argue it down</span><i></i></a></li>
+  <li><a href="#roadmap"><span>The roadmap</span><i></i></a></li>
+  <li><a href="#stories"><span>Stories</span><i></i></a></li>
+  <li><a href="#unknowns"><span>Unknowns</span><i></i></a></li>
+  <li><a href="#brief"><span>The brief</span><i></i></a></li>
+  <li><a href="#next"><span>Build day</span><i></i></a></li>
+</ul></nav>
+
+<header class="hero" id="top" data-sec>
+  <div id="scene" aria-hidden="true"></div>
+  <div class="wrap" style="width:100%;display:grid;gap:40px;align-self:stretch">
+    <div class="brand"><span><b>021</b> · roadmap-first</span><span id="generated"></span></div>
+    <div class="hero-inner">
+      <div>
+        <div class="eyebrow">The roadmap for</div>
+        <h1 id="h-name"></h1>
+        <p class="sub" id="h-pitch"></p>
+        <div class="facts" id="h-facts"></div>
+      </div>
+      <div class="note y" id="h-job"><span class="dot" title="The job that pays"></span><span class="tag" id="h-jobtag">THE JOB THAT PAYS</span><span id="h-jobtext"></span></div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section id="wall" data-sec>
+  <div class="head">
+    <div class="eyebrow"><b>Ex 1–3</b> The wall</div>
+    <h2 id="wall-h"></h2>
+    <p class="lede" id="wall-lede"></p>
+  </div>
+  <div class="wall" id="wallgrid"></div>
+</section>
+
+<section id="journey" data-sec>
+  <div class="head">
+    <div class="eyebrow"><b>Ex 3 + 5</b> The journey</div>
+    <h2 id="journey-h"></h2>
+    <p class="lede">The A3 strip, one step per box, with the feature that makes each step possible stuck underneath. A pink note is a step stage 1 can’t do yet.</p>
+  </div>
+  <div class="scroll-x" tabindex="0" aria-label="Journey strip, scrolls sideways">
+    <div class="strip" id="strip"><svg id="walker" aria-hidden="true"></svg></div>
+  </div>
+</section>
+
+<section id="size" data-sec>
+  <div class="head">
+    <div class="eyebrow"><b>Ex 4–6</b> Size it in pieces</div>
+    <h2 id="size-h"></h2>
+    <p class="lede">A piece is one thing to build or switch on: a screen, a prompt, a kind of data, an outside service. Shared pieces count once, so every cut has an exact price.</p>
+  </div>
+  <div class="two">
+    <figure class="panel" style="margin:0">
+      <h3>What each move cost or saved</h3>
+      <p class="cap">The first count, what the walk added, then each cut.</p>
+      <svg class="chart" id="waterfall" role="img" aria-label="How the stage-1 piece count changed with each move"></svg>
+    </figure>
+    <figure class="panel" style="margin:0">
+      <h3 id="pieces-h"></h3>
+      <p class="cap">Each stage-1 feature and the pieces it needs. Blue lines are pieces two features share.</p>
+      <svg class="chart" id="pieces" role="img" aria-label="Stage-1 features linked to the pieces they need"></svg>
+    </figure>
+  </div>
+</section>
+
+<section id="argue" data-sec>
+  <div class="head">
+    <div class="eyebrow"><b>Ex 6</b> Argue it down</div>
+    <h2>Would they still pay without it?</h2>
+    <p class="lede">Every stage-1 feature was asked this. A yes moves it out. The founder has the last word.</p>
+  </div>
+  <div class="scroll-x"><table>
+    <thead><tr><th>Feature</th><th>Still pay without it?</th><th>Decision</th><th style="text-align:right">Saves</th></tr></thead>
+    <tbody id="argue-rows"></tbody>
+  </table></div>
+</section>
+
+<section id="roadmap" data-sec>
+  <div class="head">
+    <div class="eyebrow"><b>Ex 4 + 6</b> The flipchart</div>
+    <h2 id="flip-h"></h2>
+    <p class="lede">Stage 1 is what gets sold first. Nothing in a stage needs a stage after it.</p>
+  </div>
+  <div class="flip" id="flip"></div>
+</section>
+
+<section id="stories" data-sec>
+  <div class="head">
+    <div class="eyebrow"><b>Ex 7</b> Stage 1’s stories</div>
+    <h2>One story per step, each with “done when”</h2>
+    <p class="lede">Stories come last, so none get written for features that were cut. On build day each one is one thing to build, and its “done when” is the check.</p>
+  </div>
+  <div class="stories" id="storygrid"></div>
+</section>
+
+<section id="unknowns" data-sec>
+  <div class="head">
+    <div class="eyebrow"><b>Found by asking</b> Unknowns to test</div>
+    <h2>What you believe but haven’t proved</h2>
+    <p class="lede" id="unk-lede"></p>
+  </div>
+  <div class="unk" id="unk"></div>
+</section>
+
+<section id="brief" data-sec>
+  <div class="head">
+    <div class="eyebrow"><b>Ex 8</b> The brief</div>
+    <h2>One page, and it’s build day’s spec</h2>
+    <p class="lede">The facilitator’s six checks sit beside it. All six should be ticked before you build.</p>
+  </div>
+  <div class="brief">
+    <button class="copy" id="copy" type="button">Copy brief</button>
+    <div>
+      <h3>Who and why</h3>
+      <dl id="brief-who"></dl>
+      <h3 style="margin-top:22px">Facilitator check</h3>
+      <ul class="checks" id="checks"></ul>
+    </div>
+    <div>
+      <h3>In, and out</h3>
+      <dl id="brief-in"></dl>
+    </div>
+    <div>
+      <h3>Stories, in journey order</h3>
+      <ol id="brief-stories"></ol>
+    </div>
+    <textarea id="brief-text" aria-hidden="true" tabindex="-1" readonly></textarea>
+  </div>
+</section>
+
+<section id="next" data-sec>
+  <div class="next">
+    <div class="eyebrow" style="color:inherit;opacity:.7"><b>Next</b> Build day</div>
+    <h2>Build stage 1, one story at a time</h2>
+    <ol>
+      <li>Open Claude and paste the prompt below, with your brief where it says.</li>
+      <li>Read the plan it gives you. Cross out anything that isn’t on the brief, then say go.</li>
+      <li>Build the next story in journey order, then walk the journey from step 1.</li>
+      <li>Start a fresh conversation for each story, with the brief pasted again.</li>
+      <li>Once stage 1 is live, take the unknowns above to real customers.</li>
+    </ol>
+    <blockquote>I’m building stage 1 of a product. Here is the brief: [paste the brief]. Don’t write code yet. First give me a plan: the pieces you’ll build, in story order, and anything you need from me. Then wait for my go.</blockquote>
+  </div>
+</section>
+
+<section id="log">
+  <details>
+    <summary>Decisions log · <span class="mono" id="logcount"></span></summary>
+    <ul class="log" id="logrows"></ul>
+  </details>
+</section>
+
+<footer><span>Made with 021 · roadmap-first coach</span><span id="foot-state"></span></footer>
+</main>
+
+<script>/*__021_VENDOR__*/</script>
+<script>
+const R = "__021_DATA__";
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fname = id => (R.features.find(f => f.id === id) || {name: "—"}).name;
+const tilt = i => ((i * 37) % 7 - 3) * 0.6;
+const WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen"];
+const word = n => WORDS[n] || String(n);
+const colName = n => n === 5 ? "Later" : "Stage " + n;
+const evTag = ev => `<span class="ev ${ev}">${ev === "e" ? "evidence" : "assumption"}</span>`;
+const assumed = R.log.filter(l => l.ev === "a").length;
+
+// hero
+document.title = `${R.name} Roadmap`;
+$("#rail-name").textContent = R.name;
+$("#h-name").textContent = R.name;
+$("#h-pitch").textContent = (R.pitch ? R.pitch.replace(/[.!?]?$/, ".") : "") + (R.who ? ` For ${R.who.charAt(0).toLowerCase() + R.who.slice(1)}.` : "");
+$("#generated").textContent = R.generated;
+$("#h-facts").innerHTML = [
+  R.complete ? "" : `<span class="progress">In progress · ${esc(R.station > 8 ? "done" : "Ex " + R.station)}</span>`,
+  `<span class="chip">Stage <b>1</b> of ${R.counts.stages}</span>`,
+  `<span class="chip"><b>${R.counts.features}</b> features</span>`,
+  `<span class="chip"><b>${R.counts.pieces}</b> pieces</span>`,
+  R.price ? `<span class="chip"><b>${esc(R.price)}</b></span>` : "",
+  assumed ? `<a class="chip" href="#unknowns" style="color:inherit;text-decoration:none"><b style="color:var(--flag)">${assumed}</b> assumptions</a>` : "",
+].join("");
+if (R.payingJob) { $("#h-jobtag").textContent = `${R.payingJobId} · THE JOB THAT PAYS`; $("#h-jobtext").textContent = R.payingJob; }
+else $("#h-job").hidden = true;
+
+// wall
+$("#wall-h").textContent = `${word(R.jobs.length)} jobs, ${word(R.features.length).toLowerCase()} features`;
+$("#wall-lede").textContent = `${R.payer ? R.payer + ". " : ""}${R.why} Yellow notes are the jobs; blue notes are what the product does for each. The red dot is the job someone pays for first.`;
+$("#wallgrid").innerHTML = R.jobs.map((j, i) => `
+  <div class="col">
+    <div class="note y" style="--r:${tilt(i)}deg">${j.pays ? '<span class="dot" title="The job that pays"></span>' : ""}<span class="tag">${esc(j.id)}</span>${esc(j.text)}</div>
+    ${R.features.filter(f => f.job === j.id).map((f, k) => `<div class="note b${f.stage > 1 ? " out" : ""}" style="--r:${tilt(i + k + 3)}deg"><span class="tag">${esc(f.id)} · ${colName(f.stage).toUpperCase()}</span>${esc(f.name)}</div>`).join("")}
+  </div>`).join("") || `<p class="empty">No jobs on the wall yet.</p>`;
+
+// journey strip
+$("#journey-h").textContent = R.journey.length ? `${word(R.journey.length)} steps, walked with stage 1 only` : "The journey";
+$("#strip").style.gridTemplateColumns = `repeat(${Math.max(R.journey.length, 1)},minmax(150px,1fr))`;
+$("#strip").style.minWidth = `${Math.max(R.journey.length, 1) * 162}px`;
+$("#strip").insertAdjacentHTML("beforeend", R.journey.map((s, i) => {
+  const f = R.features.find(x => x.id === s.f);
+  const gap = !f ? "Nothing covers this step yet" : f.stage !== 1 ? `${f.id} is in ${colName(f.stage).toLowerCase()}` : "";
+  return `<div>
+    <div class="step" data-step><span class="n">${s.n}</span><p>${esc(s.text)}</p></div>
+    <div class="under">
+      ${gap ? `<div class="note p" style="--r:-2deg"><span class="tag">GAP</span>${esc(gap)}</div>` : ""}
+      ${f ? `<div class="note b" style="--r:${tilt(i)}deg"><span class="tag">${esc(f.id)}</span>${esc(f.name)}</div>` : ""}
+    </div>
+  </div>`;
+}).join(""));
+
+// sizing
+const first = R.moves.find(m => m.kind === "start");
+$("#size-h").textContent = first ? (first.delta === R.counts.pieces ? `${R.counts.pieces} pieces` : `From ${first.delta} pieces to ${R.counts.pieces}`) : "Not sized yet";
+$("#pieces-h").textContent = `Stage 1’s ${word(R.counts.pieces).toLowerCase()} pieces`;
+
+// argue
+$("#argue-rows").innerHTML = R.argued.map(r => `<tr>
+  <td><b>${esc(r.f)}</b></td><td class="q">${r.keep ? "No" : "Yes"}: ${esc(r.reason)}</td>
+  <td><span class="pill ${r.keep ? "keep" : "move"}">${r.keep ? "Keep in stage 1" : "→ " + esc(r.stage)}</span></td>
+  <td class="saves">${r.saves ? "−" + r.saves : "—"}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">Nothing argued down yet.</td></tr>`;
+
+// flipchart
+const cols = [1, 2, 3, 4, 5].filter(n => n === 1 || R.features.some(f => f.stage === n));
+$("#flip-h").textContent = `${word(cols.length)} columns, each building on the last`;
+$("#flip").style.gridTemplateColumns = `repeat(${Math.min(cols.length, 4)},minmax(0,1fr))`;
+$("#flip").innerHTML = cols.map(n => {
+  const st = R.stages.find(x => x.n === n) || {name: "Later", on: "When it earns its place"};
+  return `<div class="fcol${n === 1 ? " now" : ""}">
+    ${n === 1 ? '<span class="badge">BUILD FIRST</span>' : ""}
+    <header><span class="s">${n === 5 ? "Later" : `Stage <b>${n}</b>`}</span><h3>${esc(st.name)}</h3><span class="on">${esc(st.on)}</span></header>
+    ${R.features.filter(f => f.stage === n).map((f, k) => `<div class="note b" style="--r:${tilt(k + n)}deg"><span class="tag">${esc(f.id)}</span>${esc(f.name)}</div>`).join("")}
+  </div>`;
+}).join("");
+
+// stories
+$("#storygrid").innerHTML = R.stories.map((s, i) => `
+  <div class="note g" style="--r:${tilt(i + 1)}deg"><span class="tag">${esc(s.step)}</span>${esc(s.s)}
+    <div class="done"><b>DONE WHEN</b>${esc(s.done)}</div></div>`).join("") || `<p class="empty">Stories come at exercise 7.</p>`;
+
+// unknowns
+$("#unk-lede").textContent = `${assumed} of ${R.log.length} answers were assumptions rather than evidence. Take these to real customers once stage 1 is live.`;
+$("#unk").innerHTML = R.unknowns.map(u => `<div class="uc"><span class="k">${esc(u.k)}</span><p>${esc(u.a)}</p><p class="t">${u.test ? "Test: " + esc(u.test) : "No test yet"}</p></div>`).join("") || `<p class="empty">No unknowns recorded.</p>`;
+
+// brief
+const inList = R.features.filter(f => f.stage === 1).map(f => f.name.toLowerCase()).join(", ");
+const outList = [2, 3, 4, 5].map(n => ({n, l: R.features.filter(f => f.stage === n).map(f => f.name.toLowerCase())})).filter(x => x.l.length).map(x => `${x.l.join(", ")} (${x.n === 5 ? "later" : "stage " + x.n})`).join("; ");
+$("#brief-who").innerHTML = `<dt>Who pays</dt><dd>${esc(R.payer || "—")}</dd><dt>The job</dt><dd>${esc(R.payingJob || "—")}</dd><dt>Would they pay?</dt><dd>${esc(R.price ? `Yes: ${R.price}. ${R.why}` : R.why || "—")}</dd>`;
+$("#brief-in").innerHTML = `<dt>In</dt><dd>${esc(inList || "—")} · ${R.counts.pieces} pieces</dd><dt>Out</dt><dd>${esc(outList || "—")}</dd><dt>Test cases</dt><dd>${esc(R.testCases || "—")}</dd>`;
+$("#checks").innerHTML = R.checks.map(c => `<li><span class="${c.ok ? "ok" : "no"}">${c.ok ? "✓" : "✗"}</span>${esc(c.label)}</li>`).join("");
+$("#brief-stories").innerHTML = R.stories.map(s => `<li>${esc(s.s.replace(/^As an? [^,]+, I want (to )?/i, "").replace(/, so that.*$/i, ""))}<small>Done when: ${esc(s.done)}</small></li>`).join("");
+
+// log
+$("#logcount").textContent = `${R.log.length} answers · ${assumed} assumptions`;
+$("#logrows").innerHTML = R.log.map(l => `<li><span class="when">${esc(l.when)}</span><div><div class="qq">${esc(l.q)}</div><div class="aa">${esc(l.a)}${evTag(l.ev)}</div></div></li>`).join("");
+$("#foot-state").textContent = R.complete ? "Every gap filled" : "In progress: run /021 roadmap to carry on";
+
+// copy brief
+const briefText = [
+  `STAGE-1 BRIEF · ${R.name}`,
+  `Who pays: ${R.payer}`,
+  `The job: ${R.payingJob}`,
+  `Would they pay? ${R.price ? "Yes: " + R.price + ". " : ""}${R.why}`,
+  `In: ${inList} (${R.counts.pieces} pieces)`,
+  `Out: ${outList}`,
+  `Test cases: ${R.testCases}`,
+  "Stories, in journey order:",
+  ...R.stories.map((s, i) => `${i + 1}. ${s.s}\n   Done when: ${s.done}`),
+].join("\n");
+$("#brief-text").value = briefText;
+$("#copy").addEventListener("click", () => {
+  const b = $("#copy");
+  const ok = () => { b.textContent = "Copied"; setTimeout(() => b.textContent = "Copy brief", 1800); };
+  const fallback = () => { const t = $("#brief-text"); t.select(); try { document.execCommand("copy"); ok(); } catch (e) { b.textContent = "Select and copy"; } };
+  try { navigator.clipboard.writeText(briefText).then(ok, fallback); } catch (e) { fallback(); }
+});
+
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// D3: waterfall
+function drawWaterfall() {
+  if (!window.d3) return;
+  const W = 520, H = 300, m = {t: 24, r: 8, b: 56, l: 34};
+  const svg = d3.select("#waterfall").attr("viewBox", `0 0 ${W} ${H}`);
+  svg.selectAll("*").remove();
+  let run = 0;
+  const rows = R.moves.map(mv => {
+    if (mv.kind === "start") { run = mv.delta; return {...mv, y0: 0, y1: run, total: run}; }
+    if (mv.kind === "end") return {...mv, y0: 0, y1: run, total: run};
+    const a = run; run += mv.delta; return {...mv, y0: Math.min(a, run), y1: Math.max(a, run), total: run};
+  });
+  const x = d3.scaleBand().domain(rows.map(r => r.label)).range([m.l, W - m.r]).padding(.28);
+  const y = d3.scaleLinear().domain([0, Math.max(4, ...rows.map(r => r.y1))]).range([H - m.b, m.t]);
+  svg.append("g").selectAll("line").data(y.ticks(6)).join("line")
+    .attr("x1", m.l).attr("x2", W - m.r).attr("y1", d => y(d)).attr("y2", d => y(d))
+    .attr("stroke", "currentColor").attr("stroke-opacity", .1);
+  svg.append("g").selectAll("text").data(y.ticks(6)).join("text")
+    .attr("x", m.l - 8).attr("y", d => y(d) + 4).attr("text-anchor", "end")
+    .attr("font-size", 11).attr("font-family", css("--f-mono")).attr("opacity", .6).text(d => d);
+  const color = k => k === "cut" ? css("--accent") : k === "add" ? css("--pink") : k === "end" ? css("--green") : css("--yellow");
+  rows.forEach((r, i) => {
+    if (i < rows.length - 1) svg.append("line").attr("x1", x(r.label) + x.bandwidth()).attr("x2", x(rows[i + 1].label))
+      .attr("y1", y(r.total)).attr("y2", y(r.total)).attr("stroke", "currentColor").attr("stroke-dasharray", "3 3").attr("opacity", .5);
+  });
+  const g = svg.append("g").selectAll("g").data(rows).join("g");
+  g.append("rect").attr("class", "wf").attr("x", d => x(d.label)).attr("width", x.bandwidth())
+    .attr("y", d => y(d.y1)).attr("height", d => y(d.y0) - y(d.y1)).attr("rx", 2)
+    .attr("fill", d => color(d.kind)).attr("stroke", d => d.kind === "end" ? css("--ok") : "none").attr("stroke-width", 2);
+  g.append("text").attr("x", d => x(d.label) + x.bandwidth() / 2).attr("y", d => y(d.y1) - 7).attr("text-anchor", "middle")
+    .attr("font-size", 13).attr("font-weight", 600).attr("font-family", css("--f-mono"))
+    .text(d => d.kind === "start" || d.kind === "end" ? d.total : (d.delta > 0 ? "+" : "−") + Math.abs(d.delta));
+  g.append("text").attr("transform", d => `translate(${x(d.label) + x.bandwidth() / 2},${H - m.b + 16})`)
+    .attr("text-anchor", "middle").attr("font-size", 11)
+    .selectAll("tspan").data(d => d.label.replace(/^[+−] /, "").split(" ").reduce((a, w) => { const l = a[a.length - 1]; (l && (l + " " + w).length <= 10) ? a[a.length - 1] = l + " " + w : a.push(w); return a; }, []))
+    .join("tspan").attr("x", 0).attr("dy", (d, i) => i ? 13 : 0).text(d => d);
+}
+
+// D3: feature → piece links
+function drawPieces() {
+  if (!window.d3) return;
+  const W = 520, H = Math.max(300, R.pieces.length * 36 + 40), fx = 150, px = 330;
+  const svg = d3.select("#pieces").attr("viewBox", `0 0 ${W} ${H}`);
+  svg.selectAll("*").remove();
+  const feats = R.features.filter(f => f.stage === 1).sort((a, b) => a.id.localeCompare(b.id, undefined, {numeric: true}));
+  const fy = d3.scalePoint().domain(feats.map(f => f.id)).range([30, H - 30]);
+  const py = d3.scalePoint().domain(R.pieces.map(p => p.id)).range([24, H - 24]);
+  const links = R.pieces.flatMap(p => p.by.map(f => ({f, p})));
+  svg.append("g").selectAll("path").data(links).join("path")
+    .attr("class", "lnk").attr("fill", "none")
+    .attr("d", d => d3.linkHorizontal()({source: [fx + 6, fy(d.f)], target: [px - 6, py(d.p.id)]}))
+    .attr("stroke", d => d.p.by.length > 1 ? css("--accent") : "currentColor")
+    .attr("stroke-opacity", d => d.p.by.length > 1 ? 1 : .35).attr("stroke-width", d => d.p.by.length > 1 ? 2.5 : 1.5);
+  const fg = svg.append("g").selectAll("g").data(feats).join("g").attr("transform", f => `translate(${fx},${fy(f.id)})`);
+  fg.append("rect").attr("x", -142).attr("y", -15).attr("width", 142).attr("height", 30).attr("rx", 2).attr("fill", css("--blue"));
+  fg.append("text").attr("x", -134).attr("y", 5).attr("font-size", 13).attr("fill", css("--note-ink")).style("fill", css("--note-ink"))
+    .attr("font-family", css("--f-hand")).text(f => f.id + " " + f.name.replace("Tell it about you", "About you").replace("What to ask for instead", "What to ask for"));
+  const pg = svg.append("g").selectAll("g").data(R.pieces).join("g").attr("transform", p => `translate(${px},${py(p.id)})`);
+  pg.append("circle").attr("r", 5).attr("fill", p => p.by.length > 1 ? css("--accent") : "currentColor");
+  pg.append("text").attr("x", 12).attr("y", -1).attr("font-size", 13).attr("font-weight", 600).text(p => p.name);
+  pg.append("text").attr("x", 12).attr("y", 13).attr("font-size", 10.5).attr("font-family", css("--f-mono")).attr("opacity", .6)
+    .text(p => p.kind + (p.by.length > 1 ? " · shared" : ""));
+}
+
+// the journey walker: a dashed line through the step boxes
+function drawWalker() {
+  const strip = $("#strip"), svg = $("#walker");
+  const steps = [...strip.querySelectorAll("[data-step]")];
+  const box = strip.getBoundingClientRect();
+  svg.setAttribute("width", box.width); svg.setAttribute("height", box.height);
+  const pts = steps.map(s => { const r = s.getBoundingClientRect(); return [r.left - box.left + r.width / 2, r.top - box.top - 10]; });
+  if (!pts.length) return;
+  const d = "M" + pts.map(p => p.join(",")).join(" L");
+  svg.innerHTML = `<path id="walkpath" d="${d}" fill="none" stroke="${css("--accent")}" stroke-width="2" stroke-dasharray="6 6"/>` +
+    pts.map((p, i) => `<circle cx="${p[0]}" cy="${p[1]}" r="5" fill="${i === pts.length - 1 ? css("--flag") : css("--accent")}"/>`).join("");
+}
+
+// three.js: the path through the stages
+function drawHero() {
+  const host = $("#scene");
+  if (!window.THREE || !host) return;
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({antialias: true, alpha: true}); } catch (e) { return; }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  host.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(38, 1, .1, 100);
+  const world = new THREE.Group(); scene.add(world);
+  const pts = [[-7, -2.6, -1], [-3.6, -1.5, .4], [-.4, -.2, -.6], [2.8, 1.1, .5], [6.4, 2.6, -.4]].map(p => new THREE.Vector3(p[0], p[1], p[2]));
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const pathMat = new THREE.MeshBasicMaterial({transparent: true, opacity: .4});
+  world.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 120, .035, 6, false), pathMat));
+
+  const glowTex = (() => {
+    const c = document.createElement("canvas"); c.width = c.height = 128;
+    const g = c.getContext("2d"), r = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    r.addColorStop(0, "rgba(255,255,255,1)"); r.addColorStop(.3, "rgba(255,255,255,.45)"); r.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = r; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c);
+  })();
+  const stageT = [.1, .36, .62, .88];
+  const markers = stageT.map((t, i) => {
+    const p = curve.getPointAt(t);
+    const m = new THREE.Mesh(new THREE.SphereGeometry(i === 0 ? .26 : .16, 32, 16), new THREE.MeshBasicMaterial({}));
+    m.position.copy(p); world.add(m);
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({map: glowTex, transparent: true, depthWrite: false, opacity: i === 0 ? .95 : .35}));
+    s.scale.setScalar(i === 0 ? 2.4 : 1); s.position.copy(p); world.add(s);
+    return {m, s, i};
+  });
+
+  // post-its drifting around stage 1
+  const noteColors = ["--yellow", "--blue", "--blue", "--pink", "--green", "--blue", "--yellow", "--green"];
+  const base = curve.getPointAt(stageT[0]);
+  const notes = noteColors.map((c, i) => {
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(.42, .42), new THREE.MeshBasicMaterial({side: THREE.DoubleSide}));
+    const a = i / noteColors.length * Math.PI * 2;
+    mesh.userData = {c, a, rad: 1.1 + (i % 3) * .35, h: (i % 4 - 1.5) * .35, sp: .25 + (i % 3) * .07};
+    mesh.position.set(base.x + Math.cos(a) * mesh.userData.rad, base.y + mesh.userData.h, base.z + Math.sin(a) * mesh.userData.rad);
+    mesh.rotation.set(Math.sin(i) * .4, a, Math.cos(i) * .3);
+    world.add(mesh); return mesh;
+  });
+
+  function paint() {
+    const ink = new THREE.Color(css("--ink")), accent = new THREE.Color(css("--accent")), muted = new THREE.Color(css("--muted"));
+    pathMat.color = ink;
+    markers.forEach(({m, s, i}) => { m.material.color = i === 0 ? accent : muted; s.material.color = i === 0 ? accent : muted; });
+    notes.forEach(n => n.material.color = new THREE.Color(css(n.userData.c)));
+  }
+  paint();
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { paint(); render(0); });
+  new MutationObserver(() => { paint(); render(0); }).observe(document.documentElement, {attributes: true, attributeFilter: ["data-theme"]});
+
+  function size() {
+    const w = host.clientWidth, h = host.clientHeight;
+    renderer.setSize(w, h, false); camera.aspect = w / Math.max(h, 1); camera.updateProjectionMatrix();
+    world.position.set(w < 700 ? 1 : 3.4, w < 700 ? 2.4 : .7, 0);
+  }
+  new ResizeObserver(() => { size(); render(0); }).observe(host);
+  size();
+
+  let scrollP = 0;
+  function render(t) {
+    const k = scrollP;
+    camera.position.set(-3 + k * 7 + Math.sin(t * .00015) * .4, .6 + k * 1.6, 9.5 - k * 2);
+    camera.lookAt(-1 + k * 4, k * 1.2, 0);
+    notes.forEach((n, i) => {
+      const u = n.userData, a = u.a + t * .0001 * u.sp * 3;
+      n.position.set(base.x + Math.cos(a) * u.rad, base.y + u.h + Math.sin(t * .001 * u.sp + i) * .08, base.z + Math.sin(a) * u.rad);
+      n.rotation.y = a + Math.PI / 2;
+    });
+    markers[0].s.scale.setScalar(2.4 + Math.sin(t * .002) * .15);
+    renderer.render(scene, camera);
+  }
+  if (reduce) { render(0); return; }
+  if (window.ScrollTrigger) ScrollTrigger.create({trigger: "#top", start: "top top", end: "bottom top", onUpdate: s => scrollP = s.progress});
+  new IntersectionObserver(([en]) => renderer.setAnimationLoop(en.isIntersecting ? render : null)).observe(host);
+}
+
+function motion() {
+  const bar = $("#bar");
+  const links = [...document.querySelectorAll("#rail a")];
+  const secs = [...document.querySelectorAll("[data-sec]")];
+  const onScroll = () => {
+    const h = document.documentElement.scrollHeight - innerHeight;
+    bar.style.transform = `scaleX(${h > 0 ? scrollY / h : 0})`;
+    let cur = 0; secs.forEach((s, i) => { if (s.getBoundingClientRect().top < innerHeight * .4) cur = i; });
+    links.forEach((a, i) => a.classList.toggle("on", i === cur));
+  };
+  addEventListener("scroll", onScroll, {passive: true}); onScroll();
+  if (reduce || !window.gsap || !window.ScrollTrigger) return;
+  gsap.registerPlugin(ScrollTrigger);
+  // notes stick on as they arrive; they are fully visible at rest
+  document.querySelectorAll("main .note").forEach(el => {
+    gsap.from(el, {y: 26, rotation: "+=6", duration: .7, ease: "back.out(2)", scrollTrigger: {trigger: el, start: "top 95%", once: true}});
+  });
+  const wp = document.getElementById("walkpath");
+  if (wp) {
+    const L = wp.getTotalLength();
+    gsap.fromTo(wp, {strokeDashoffset: L}, {strokeDashoffset: 0, ease: "none", scrollTrigger: {trigger: "#journey", start: "top 70%", end: "bottom 60%", scrub: true}});
+  }
+}
+
+drawWaterfall(); drawPieces(); drawWalker(); drawHero(); motion();
+addEventListener("resize", () => { drawWalker(); });
+const rethemed = () => { drawWaterfall(); drawPieces(); drawWalker(); };
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", rethemed);
+new MutationObserver(rethemed).observe(document.documentElement, {attributes: true, attributeFilter: ["data-theme"]});
+document.fonts && document.fonts.ready.then(drawWalker);
+</script>
+</body>
+</html>

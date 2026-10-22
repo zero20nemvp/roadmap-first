@@ -1,0 +1,5 @@
+{
+  "name": "021",
+  "owner": { "name": "db" },
+  "plugins": [{ "name": "021", "source": "./", "description": "Roadmap-first coach: find stage 1, the smallest slice someone would pay for" }]
+}

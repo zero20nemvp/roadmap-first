@@ -1,0 +1,359 @@
+{
+  "version": 1,
+  "name": "Redline",
+  "idea": {
+    "pitch": "An AI that reads the contract before you sign it",
+    "who": "Freelancers who sign client contracts"
+  },
+  "jobs": [
+    {
+      "id": "J1",
+      "when": "a client sends me a contract",
+      "want": "to know which clauses could hurt me",
+      "so": "I don’t sign something that costs me money"
+    },
+    {
+      "id": "J2",
+      "when": "I’ve found a bad clause",
+      "want": "wording to ask for instead",
+      "so": "I can push back without a lawyer"
+    },
+    {
+      "id": "J3",
+      "when": "I push back",
+      "want": "an email that’s firm but friendly",
+      "so": "I keep the client"
+    },
+    {
+      "id": "J4",
+      "when": "I sign a lot of contracts",
+      "want": "to see what I agreed to before",
+      "so": "I stay consistent"
+    },
+    {
+      "id": "J5",
+      "when": "the contract arrives as a PDF",
+      "want": "to drop it in as it is",
+      "so": "I don’t have to copy text"
+    },
+    {
+      "id": "J6",
+      "when": "I work with a studio",
+      "want": "my team to use it too",
+      "so": "we all sign on the same terms"
+    }
+  ],
+  "pays": {
+    "job": "J1",
+    "who": "Alex, a freelance designer with a new client",
+    "why": "One bad clause costs more than a check. Today it is £400 for a lawyer, or an evening of worry.",
+    "price": "£9 a contract"
+  },
+  "features": [
+    {
+      "id": "F1",
+      "job": "J1",
+      "name": "Paste a contract",
+      "pieces": [
+        "P1"
+      ],
+      "stage": 1
+    },
+    {
+      "id": "F2",
+      "job": "J1",
+      "name": "Tell it about you",
+      "pieces": [
+        "P2"
+      ],
+      "stage": 1
+    },
+    {
+      "id": "F3",
+      "job": "J1",
+      "name": "Red-flag report",
+      "pieces": [
+        "P3",
+        "P4"
+      ],
+      "stage": 1
+    },
+    {
+      "id": "F4",
+      "job": "J1",
+      "name": "Pay per contract",
+      "pieces": [
+        "P5"
+      ],
+      "stage": 1
+    },
+    {
+      "id": "F5",
+      "job": "J2",
+      "name": "What to ask for instead",
+      "pieces": [
+        "P4",
+        "P12"
+      ],
+      "stage": 1
+    },
+    {
+      "id": "F6",
+      "job": "J3",
+      "name": "Pushback email",
+      "pieces": [
+        "P6"
+      ],
+      "stage": 1
+    },
+    {
+      "id": "F7",
+      "job": "J4",
+      "name": "Accounts and history",
+      "pieces": [
+        "P7",
+        "P8",
+        "P9"
+      ],
+      "stage": 1
+    },
+    {
+      "id": "F8",
+      "job": "J5",
+      "name": "PDF upload",
+      "pieces": [
+        "P10",
+        "P11"
+      ],
+      "stage": 1
+    },
+    {
+      "id": "F9",
+      "job": "J6",
+      "name": "Team workspace",
+      "pieces": [],
+      "stage": 4
+    },
+    {
+      "id": "F10",
+      "job": "J4",
+      "name": "Your standard terms",
+      "pieces": [],
+      "stage": 3
+    },
+    {
+      "id": "F11",
+      "job": "J1",
+      "name": "Email me the report",
+      "pieces": [],
+      "stage": 2
+    },
+    {
+      "id": "F12",
+      "job": "J4",
+      "name": "Compare two versions",
+      "pieces": [],
+      "stage": 3
+    },
+    {
+      "id": "F13",
+      "job": "J5",
+      "name": "Browser extension",
+      "pieces": [],
+      "stage": 4
+    }
+  ],
+  "journey": [
+    {
+      "n": 1,
+      "text": "Opens Redline",
+      "feature": "F1"
+    },
+    {
+      "n": 2,
+      "text": "Pastes the contract",
+      "feature": "F1"
+    },
+    {
+      "n": 3,
+      "text": "Says their trade and country",
+      "feature": "F2"
+    },
+    {
+      "n": 4,
+      "text": "Pays for this contract",
+      "feature": "F4"
+    },
+    {
+      "n": 5,
+      "text": "Reads the red flags, worst first, and why each matters",
+      "feature": "F3"
+    },
+    {
+      "n": 6,
+      "text": "Copies what to ask for instead, for each flag",
+      "feature": "F5"
+    }
+  ],
+  "journeyEndsAtSo": true,
+  "pieces": [
+    {
+      "id": "P1",
+      "name": "Paste screen",
+      "kind": "screen"
+    },
+    {
+      "id": "P2",
+      "name": "Trade and country",
+      "kind": "data"
+    },
+    {
+      "id": "P3",
+      "name": "Red-flag prompt",
+      "kind": "prompt"
+    },
+    {
+      "id": "P4",
+      "name": "Report page",
+      "kind": "screen"
+    },
+    {
+      "id": "P5",
+      "name": "Payment link",
+      "kind": "service"
+    },
+    {
+      "id": "P6",
+      "name": "Pushback email prompt",
+      "kind": "prompt"
+    },
+    {
+      "id": "P7",
+      "name": "Sign-in screen",
+      "kind": "screen"
+    },
+    {
+      "id": "P8",
+      "name": "Account data",
+      "kind": "data"
+    },
+    {
+      "id": "P9",
+      "name": "Sign-in service",
+      "kind": "service"
+    },
+    {
+      "id": "P10",
+      "name": "Upload screen",
+      "kind": "screen"
+    },
+    {
+      "id": "P11",
+      "name": "PDF reader",
+      "kind": "service"
+    },
+    {
+      "id": "P12",
+      "name": "Wording prompt",
+      "kind": "prompt"
+    }
+  ],
+  "piecesConfirmed": true,
+  "stageNames": {},
+  "stories": [],
+  "testCases": "",
+  "smallEnough": false,
+  "unknowns": [
+    {
+      "id": "U1",
+      "text": "Freelancers will pay £9 a contract.",
+      "test": "Put a payment link in front of 10 freelancers. Do 3 pay?",
+      "from": ""
+    }
+  ],
+  "parked": [],
+  "moves": [
+    {
+      "label": "First draft",
+      "delta": 11,
+      "kind": "start"
+    },
+    {
+      "label": "+ Wording prompt",
+      "delta": 1,
+      "kind": "add"
+    }
+  ],
+  "log": [
+    {
+      "at": "2026-10-22",
+      "station": 0,
+      "q": "Say the idea in one breath. Who is it for?",
+      "a": "An AI that reads the contract before you sign it, for freelancers.",
+      "ev": "evidence"
+    },
+    {
+      "at": "2026-10-22",
+      "station": 1,
+      "q": "When does Alex need this, and what does it get them?",
+      "a": "When a client sends a contract, so they don’t sign something that costs money.",
+      "ev": "evidence"
+    },
+    {
+      "at": "2026-10-22",
+      "station": 2,
+      "q": "Who would pay to have this done, today? Name them.",
+      "a": "Alex, a freelance designer quoted £400 by a lawyer for a 20-page contract.",
+      "ev": "evidence"
+    },
+    {
+      "at": "2026-10-22",
+      "station": 2,
+      "q": "How much would Alex pay, per contract?",
+      "a": "About £9 a contract, less than an hour of a lawyer.",
+      "ev": "assumption"
+    },
+    {
+      "at": "2026-10-22",
+      "station": 3,
+      "q": "What does the product do, under each job?",
+      "a": "Thirteen features across the six jobs.",
+      "ev": "evidence"
+    },
+    {
+      "at": "2026-10-22",
+      "station": 3,
+      "q": "Walk me through J1, from the first thing Alex does.",
+      "a": "Six steps, from opening Redline to copying what to ask for.",
+      "ev": "evidence"
+    },
+    {
+      "at": "2026-10-22",
+      "station": 3,
+      "q": "They’ve read the red flags. And then what happens?",
+      "a": "They need to know what to ask for instead. That is where the job’s “so” is reached.",
+      "ev": "evidence"
+    },
+    {
+      "at": "2026-10-22",
+      "station": 4,
+      "q": "Which features does the journey need? Everything else, which column?",
+      "a": "The room’s first draft: the AI can do it all anyway.",
+      "ev": "assumption"
+    },
+    {
+      "at": "2026-10-22",
+      "station": 4,
+      "q": "That makes 11 pieces. Does that count look right to you?",
+      "a": "Yes, 11.",
+      "ev": "evidence"
+    },
+    {
+      "at": "2026-10-22",
+      "station": 5,
+      "q": "Walk it as Alex, touching only stage 1. Where do you get stuck?",
+      "a": "Step 6: the report says what’s wrong, not what to ask for. Add F5 from J2.",
+      "ev": "evidence"
+    }
+  ]
+}
