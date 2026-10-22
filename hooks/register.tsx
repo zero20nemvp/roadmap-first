@@ -85,7 +85,7 @@ function paintStatus($: EngineInterface, s: Session) {
   const st = stationOf(s)
   $.ui.status(st > LAST
     ? `021 ▸ stage 1 ready · ${stage1(s).length} features · ${pieceCount(s)} pieces · /021 view`
-    : `021 ▸ ${st}/8 ${STATIONS[st]!.short} · ${pieceCount(s)} pieces · ${gaps(s).length} gaps`)
+    : `021 ▸ ${st}/${LAST} ${STATIONS[st]!.short} · ${pieceCount(s)} pieces · ${gaps(s).length} gaps`)
 }
 
 async function chime($: EngineInterface) {
@@ -204,6 +204,15 @@ export const register: Register = on => {
     const g = gaps(s)
     return { result: `${whereText(s)}\n\nGaps in order:\n${g.slice(0, 12).map(x => `- [ex ${x.station}] ${x.text}`).join('\n')}${g.length > 12 ? `\n…and ${g.length - 12} more` : ''}` }
   }).catch(() => ({ result: FAILED }))
+
+  // The coach's own tools only read and write ./021/, so they never stop to ask.
+  // A deny from the person's or the organization's rules still stands.
+  for (const tool of ['mcp__021__record', 'mcp__021__park', 'mcp__021__where'] as const) {
+    on('tool.check', { tool }, async ($, e, next) => {
+      const verdict = await next(e)
+      return verdict.decision === 'deny' ? verdict : { decision: 'allow' as const, reason: '021 saves your answers to ./021/' }
+    }).catch(($, e, next) => next(e))
+  }
 
   // ── what the model reads ─────────────────────────────────────────────────
 
