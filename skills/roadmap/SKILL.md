@@ -17,7 +17,7 @@ Most products are built whole and only then found to work or not. Roadmap-first 
 - **Each later stage builds only on the ones before it.**
 - **If stage 1 can't be sold and delivered, the rest isn't built**, or what customers say reshapes stage 2 on.
 
-## The 8 exercises
+## The 8 exercises, and the sketch
 
 | # | Exercise | Post-it | Done when |
 |---|---|---|---|
@@ -30,6 +30,7 @@ Most products are built whole and only then found to work or not. Roadmap-first 
 | 6 | Argue it down | — | Each stage-1 feature kept or moved, with the founder's reason |
 | 7 | Write stage 1's stories | green: As a…, I want to…, so that… + Done when | One story per step, each "done when" checkable by looking |
 | 8 | Write the brief | — | The six facilitator checks pass; every unknown has a test |
+| 9 | Sketch the rest | pencil | Every later stage named, none needs a later one, none empty before a filled one; the founder chose the order |
 
 A **piece** is one thing to build or switch on: a screen, a prompt, a kind of data, an outside service. Shared pieces count once, so every cut has an exact price, and a cut saves only the pieces nothing else needs.
 

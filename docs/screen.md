@@ -7,14 +7,14 @@ While a session is running, five things tell you where you are. You never need t
 The band is the main signal. It sits right where you type:
 
 ```
-021  Ex 6 of 8 · Argue it down  ●●●●●●◉○○  ~25 min left · Claude is the visiting table
+021  Ex 6 of 9 · Argue it down  ●●●●●●◉○○○  ~30 min left · Claude is the visiting table
 Next: Would they still pay without F7 Accounts and history? (no journey step uses it) · 11 pieces · 15 gaps · /021 where
 ```
 
-- **Ex 6 of 8 · Argue it down** is the exercise you're on.
-- **●●●●●●◉○○** shows progress across the nine stations: ● done, ◉ here, ○ to come.
-- **~25 min left** is a rough time to the end.
-- **Claude is the visiting table** appears at exercise 6, when Claude argues against your features.
+- **Ex 6 of 9 · Argue it down** is the exercise you're on.
+- **●●●●●●◉○○○** shows progress across the ten stations: ● done, ◉ here, ○ to come.
+- **~30 min left** is a rough time to the end.
+- **Claude is the visiting table** appears at exercise 6, when Claude argues against your features. At exercise 9 it reads **in pencil: Claude drafts, you choose the order**.
 - **Next:** is the question being worked on now.
 - **11 pieces · 15 gaps** is the stage-1 size and what's still missing. Gaps can go *up*, for example when the walk finds a step with nothing under it. That's the process working.
 
@@ -25,7 +25,7 @@ When every gap is filled, the band changes to `✓ Stage 1 is ready` and points 
 The status line sits under the prompt, so you can see it even with the pane closed:
 
 ```
-021 ▸ 6/8 Argue · 11 pieces · 15 gaps
+021 ▸ 6/9 Argue · 11 pieces · 15 gaps
 ```
 
 ## The wall pane
@@ -39,6 +39,7 @@ The status line sits under the prompt, so you can see it even with the pane clos
 - **Gaps on the walk:** pink notes, during exercise 5
 - **Stories:** green notes, during exercise 7
 - **Unknowns to test:** what you've marked as assumptions or parked
+- **The rest, in pencil ✏️:** at exercise 9, the later stages with their names and features
 
 In a wide window the pane sits beside the conversation. In a narrower one it sits above the prompt in a compact form: the stations on one line, then the notes. When the coach opens the pane by itself, it waits for a wide enough window; `/021 map` opens it at any width. Until then, the band carries everything.
 

@@ -164,14 +164,20 @@
       "job": "J6",
       "name": "Team workspace",
       "pieces": [],
-      "stage": 4
+      "stage": 4,
+      "needs": [
+        "F7"
+      ]
     },
     {
       "id": "F10",
       "job": "J4",
       "name": "Your standard terms",
       "pieces": [],
-      "stage": 3
+      "stage": 3,
+      "needs": [
+        "F7"
+      ]
     },
     {
       "id": "F11",
@@ -185,7 +191,10 @@
       "job": "J4",
       "name": "Compare two versions",
       "pieces": [],
-      "stage": 3
+      "stage": 3,
+      "needs": [
+        "F7"
+      ]
     },
     {
       "id": "F13",
@@ -337,6 +346,8 @@
   ],
   "testCases": "Three sample contracts, one of them nasty",
   "smallEnough": true,
+  "depsConfirmed": true,
+  "sketchOrdered": true,
   "unknowns": [
     {
       "id": "U1",
@@ -354,6 +365,12 @@
       "id": "U3",
       "text": "A plain-English why is enough to act on, without a lawyer.",
       "test": "After the report, ask: would you send a pushback based on this?",
+      "from": ""
+    },
+    {
+      "id": "U4",
+      "text": "Freelancers want the pushback email more than accounts.",
+      "test": "Ask the first ten paying users which they would pay for next.",
       "from": ""
     }
   ],
@@ -511,6 +528,20 @@
       "q": "Five features, six pieces. Small enough to build in a day?",
       "a": "Yes.",
       "ev": "evidence"
+    },
+    {
+      "at": "2026-10-22",
+      "station": 9,
+      "q": "Everything outside stage 1, in pencil: which features does each later one need first?",
+      "a": "Compare and standard terms need accounts; the rest stand on stage 1.",
+      "ev": "evidence"
+    },
+    {
+      "at": "2026-10-22",
+      "station": 9,
+      "q": "Which of these would freelancers pay for next?",
+      "a": "Push back: the pushback email is what they asked for most.",
+      "ev": "assumption"
     }
   ]
 }

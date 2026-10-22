@@ -123,6 +123,10 @@ td.q{font-family:var(--f-hand);font-size:17px}
 .fcol header h3{font-size:22px}
 .fcol .on{font:500 12px/1.3 var(--f-mono);color:var(--muted)}
 .fcol .note{font-size:15px}
+.fcol.pencil{border:1.5px dashed var(--muted);background:color-mix(in srgb,var(--surface) 70%,transparent)}
+.fcol.pencil .note{opacity:.92}
+.badge.sk{background:var(--surface);color:var(--muted);border:1px dashed var(--muted)}
+.note .needs{display:block;margin-top:6px;font:500 11px/1.2 var(--f-mono);opacity:.7}
 .badge{position:absolute;top:-11px;left:14px;background:var(--accent);color:var(--surface);font:600 11px/1 var(--f-mono);padding:5px 8px;border-radius:4px;letter-spacing:.06em}
 
 /* stories */
@@ -132,7 +136,7 @@ td.q{font-family:var(--f-hand);font-size:17px}
 .done b{font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;display:block;margin-bottom:2px}
 
 /* unknowns */
-.unk{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.unk{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
 .uc{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--flag);border-radius:6px;padding:16px;display:grid;gap:8px}
 .uc .k{font:600 11px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--flag)}
 .uc .t{font:500 12px/1.4 var(--f-mono);color:var(--muted)}
@@ -289,7 +293,7 @@ body{margin:0}
   <div class="head">
     <div class="eyebrow"><b>Ex 4 + 6</b> The flipchart</div>
     <h2 id="flip-h"></h2>
-    <p class="lede">Stage 1 is what gets sold first. Nothing in a stage needs a stage after it.</p>
+    <p class="lede" id="flip-lede">Stage 1 is what gets sold first. Nothing in a stage needs a stage after it.</p>
   </div>
   <div class="flip" id="flip"></div>
 </section>
@@ -383,7 +387,7 @@ $("#h-name").textContent = R.name;
 $("#h-pitch").textContent = (R.pitch ? R.pitch.replace(/[.!?]?$/, ".") : "") + (R.who ? ` For ${R.who.charAt(0).toLowerCase() + R.who.slice(1)}.` : "");
 $("#generated").textContent = R.generated;
 $("#h-facts").innerHTML = [
-  R.complete ? "" : `<span class="progress">In progress · ${esc(R.station > 8 ? "done" : "Ex " + R.station)}</span>`,
+  R.complete ? "" : `<span class="progress">In progress · ${esc("Ex " + R.station)}</span>`,
   `<span class="chip">Stage <b>1</b> of ${R.counts.stages}</span>`,
   `<span class="chip"><b>${R.counts.features}</b> features</span>`,
   `<span class="chip"><b>${R.counts.pieces}</b> pieces</span>`,
@@ -435,12 +439,16 @@ $("#flip-h").textContent = `${word(cols.length)} columns, each building on the l
 $("#flip").style.gridTemplateColumns = `repeat(${Math.min(cols.length, 4)},minmax(0,1fr))`;
 $("#flip").innerHTML = cols.map(n => {
   const st = R.stages.find(x => x.n === n) || {name: "Later", on: "When it earns its place"};
-  return `<div class="fcol${n === 1 ? " now" : ""}">
-    ${n === 1 ? '<span class="badge">BUILD FIRST</span>' : ""}
-    <header><span class="s">${n === 5 ? "Later" : `Stage <b>${n}</b>`}</span><h3>${esc(st.name)}</h3><span class="on">${esc(st.on)}</span></header>
-    ${R.features.filter(f => f.stage === n).map((f, k) => `<div class="note b" style="--r:${tilt(k + n)}deg"><span class="tag">${esc(f.id)}</span>${esc(f.name)}</div>`).join("")}
+  const pieces = n === 1 ? `${st.pieces} pieces` : st.pieces ? `~${st.pieces} pieces so far` : "";
+  return `<div class="fcol${n === 1 ? " now" : " pencil"}">
+    ${n === 1 ? '<span class="badge">BUILD FIRST</span>' : '<span class="badge sk">✏️ SKETCH</span>'}
+    <header><span class="s">${n === 5 ? "Later" : `Stage <b>${n}</b>`}</span><h3>${esc(st.name)}</h3><span class="on">${esc(st.on)}${pieces ? " · " + pieces : ""}</span></header>
+    ${R.features.filter(f => f.stage === n).map((f, k) => `<div class="note b" style="--r:${tilt(k + n)}deg"><span class="tag">${esc(f.id)}</span>${esc(f.name)}${f.needs.length ? `<span class="needs">needs ${f.needs.map(esc).join(", ")}</span>` : ""}</div>`).join("")}
   </div>`;
 }).join("");
+if (cols.length > 1) $("#flip-lede").textContent = R.sketched
+  ? "Stage 1 is what gets sold first, and it is the only one planned in detail. The rest is sketched in pencil, in the order you’d expect customers to pay for next. Expect it to change once stage 1 meets real customers."
+  : "Stage 1 is what gets sold first. The later stages are a first sketch and still need ordering.";
 
 // stories
 $("#storygrid").innerHTML = R.stories.map((s, i) => `

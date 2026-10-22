@@ -28,7 +28,7 @@ Stage 1 exists so you can learn. Once it works end to end:
 
 What customers tell you can reshape everything after stage 1. That's the point.
 
-1. Open Claude Code in the same folder and run `/021 roadmap`. Your session is still there.
+1. Open Claude Code in the same folder and run `/021 roadmap`. Your session is still there, including the pencil sketch of stages 2 onwards from exercise 9.
 2. Tell the coach what you learned, for example: “Three of ten freelancers paid. Two asked for PDF upload.” It records what changed and asks what follows from it.
 3. Use `/021 back 4` to move features between columns, or `/021 back 6` to argue stage 2 down the same way you argued stage 1.
 4. `/021 view` gives you an updated roadmap page to share.

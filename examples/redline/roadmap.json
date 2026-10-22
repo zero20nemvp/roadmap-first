@@ -263,6 +263,8 @@
   "stories": [],
   "testCases": "",
   "smallEnough": false,
+  "depsConfirmed": false,
+  "sketchOrdered": false,
   "unknowns": [
     {
       "id": "U1",

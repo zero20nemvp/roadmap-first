@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { coachSection } from '../hooks/coach'
-import { apply, briefChecks, emptySession, gaps, park, pieceCount, savingOf, stationOf, vagueDoneWhen, type Change, type Session } from '../hooks/engine'
+import { DONE, apply, briefChecks, emptySession, gaps, park, pieceCount, savingOf, stationOf, vagueDoneWhen, type Change, type Session } from '../hooks/engine'
 
 const run = (s: Session, changes: Change[]) => {
   const r = apply(s, changes)
@@ -120,8 +120,10 @@ describe('arguing and stories', () => {
       { op: 'test-cases', text: 'Three sample contracts, one nasty' },
       { op: 'small-enough', value: true },
     ])
-    expect(gaps(s)).toEqual([])
     expect(stationOf(s)).toBe(9)
+    s = run(s, [{ op: 'deps-confirmed', value: true }, { op: 'stage-name', stage: 2, name: 'Push back' }, { op: 'sketch-ordered', value: true }])
+    expect(gaps(s)).toEqual([])
+    expect(stationOf(s)).toBe(DONE)
     expect(briefChecks(s).every(c => c.ok)).toBe(true)
   })
 })
@@ -129,7 +131,7 @@ describe('arguing and stories', () => {
 describe('the coach section', () => {
   test('it names the station and the one next gap', () => {
     const text = coachSection(redline(), 0)
-    expect(text).toContain('exercise 4 of 8')
+    expect(text).toContain('exercise 4 of 9')
     expect(text).toContain('Confirm the piece count')
   })
 
@@ -141,5 +143,56 @@ describe('the coach section', () => {
   test('exercise 6 makes Claude the visiting table', () => {
     const s = run(redline(), [{ op: 'pieces-confirmed', value: true }, { op: 'step', n: 3, feature: 'F3' }, { op: 'column', feature: 'F3', stage: 1 }])
     expect(coachSection(s, 0)).toContain('visiting table')
+  })
+})
+
+describe('sketching the rest', () => {
+  // stage 1 finished; the pushback email (F4) and the wording (F3) sit in later stages
+  function sketched(): Session {
+    let s = redline()
+    s = run(s, [
+      { op: 'pieces-confirmed', value: true },
+      { op: 'column', feature: 'F3', stage: 3 },
+      { op: 'step', n: 3, feature: 'F2' },
+      ...(['F1', 'F2'].map(f => ({ op: 'argue', feature: f, keep: true, reason: 'Needed' }) as Change)),
+      { op: 'argue', feature: 'F4', keep: false, reason: 'Alex can write it', stage: 2 },
+      { op: 'story', step: 1, text: 'As a freelancer, I want to paste, so that I can check it.', done: 'A 20-page contract pastes in whole.' },
+      { op: 'story', step: 2, text: 'As a freelancer, I want red flags, so that I know.', done: 'Each flag quotes its clause.' },
+      { op: 'story', step: 3, text: 'As a freelancer, I want wording, so that I push back.', done: 'Every flag has a clause to copy.' },
+      { op: 'test-cases', text: 'Three contracts' },
+      { op: 'small-enough', value: true },
+    ])
+    return s
+  }
+
+  test('the sketch is the last station, and starts once the brief is done', () => {
+    const s = sketched()
+    expect(stationOf(s)).toBe(9)
+    expect(gaps(s).map(g => g.code)).toEqual(['deps', 'stage-names', 'sketch-order'])
+  })
+
+  test('a later stage that needs a stage after it is a gap until one moves', () => {
+    let s = run(sketched(), [{ op: 'needs', feature: 'F4', needs: ['F3'] }, { op: 'deps-confirmed', value: true }])
+    expect(gaps(s).some(g => g.code === 'order:F4:F3')).toBe(true)
+    s = run(s, [{ op: 'column', feature: 'F3', stage: 2 }])
+    expect(gaps(s).some(g => g.code.startsWith('order:'))).toBe(false)
+  })
+
+  test('an empty stage before a filled one is a gap', () => {
+    const s = run(sketched(), [{ op: 'column', feature: 'F4', stage: 3 }])
+    expect(gaps(s).some(g => g.code === 'stage-gap:2')).toBe(true)
+  })
+
+  test('moving a later feature asks for the order again', () => {
+    let s = run(sketched(), [{ op: 'sketch-ordered', value: true }])
+    expect(s.sketchOrdered).toBe(true)
+    s = run(s, [{ op: 'column', feature: 'F3', stage: 'later' }])
+    expect(s.sketchOrdered).toBe(false)
+  })
+
+  test('the coach drafts the sketch and leaves the order to the founder', () => {
+    const text = coachSection(sketched(), 0)
+    expect(text).toContain('exercise 9 of 9, Sketch the rest')
+    expect(text).toContain('which stage would customers pay for next')
   })
 })

@@ -37,7 +37,7 @@ test('the band says where you are and what comes next, on every surface', async 
   withSession(on, session([{ op: 'name', name: 'Redline' }, { op: 'idea', pitch: 'Checks contracts', who: 'Freelancers' }]))
   for (const surface of ['terminal', 'desktop', 'vscode', 'mobile'] as const) {
     const ui = await $.ui.mount({ ...BAND, surface })
-    expect((await ui.find({ type: 'Text', text: /Ex 1 of 8/ }))?.text).toContain('Write the jobs')
+    expect((await ui.find({ type: 'Text', text: /Ex 1 of 9/ }))?.text).toContain('Write the jobs')
     expect((await ui.find({ type: 'Text', text: /aim for 5 to 8/ }))?.text).toContain('More jobs')
     await ui.unmount()
   }

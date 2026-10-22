@@ -4,7 +4,7 @@
 
 - **Claude Code**, in the terminal or the desktop app. The browser version at claude.ai/code may not load plugins like this one, so use the terminal or the desktop app.
 - **An idea.** It doesn't need to be worked out. Exercise 0 starts from one sentence.
-- **About 75 minutes.** You don't need them all at once: stop whenever you like and pick up later.
+- **About 80 minutes.** You don't need them all at once: stop whenever you like and pick up later.
 
 Nothing else is needed. 021 has no other dependencies, needs no account, and works offline.
 
@@ -42,7 +42,7 @@ To check that it worked, type `/021`. You should see the list of commands.
    /021 roadmap
    ```
 
-   You'll see the route (your idea, then 8 exercises), roughly how long it takes, and what you'll leave with. Then Claude asks its first question.
+   You'll see the route (your idea, the 8 exercises, then a quick sketch of the rest), roughly how long it takes, and what you'll leave with. Then Claude asks its first question.
 
 3. **Answer in your own words.** Each question comes in three parts:
 

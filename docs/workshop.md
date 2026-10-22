@@ -1,6 +1,6 @@
 # Running a workshop
 
-021 follows the same 8 exercises the roadmap-first workshop runs with post-its, so you can use it alongside a real wall, after one, or instead of one.
+021 follows the same 8 exercises the roadmap-first workshop runs with post-its, then adds a short sketch of the later stages. You can use it alongside a real wall, after one, or instead of one.
 
 ## The post-it colours
 
@@ -71,3 +71,4 @@ The demo uses the workshop's worked example, so it lines up with the slides.
 | 6 Argue it down | 30 min | ~10 min |
 | 7 Write stage 1's stories | 30 min | ~10 min |
 | 8 Write the brief | 20 min | ~5 min |
+| 9 Sketch the rest | — | ~5 min |
