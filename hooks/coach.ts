@@ -1,6 +1,6 @@
 // What the coach tells the model each turn: the Socratic rules, where the
 // founder stands, and the one gap to ask about next.
-import { STATIONS, gaps, minutesLeft, pieceCount, stage1, stationOf, summary, type Session } from './engine'
+import { LAST, STATIONS, gaps, minutesLeft, pieceCount, stage1, stationOf, summary, type Session } from './engine'
 
 export const LADDER = [
   'Ask the question plainly.',
@@ -11,7 +11,7 @@ export const LADDER = [
 ] as const
 
 const STATION_NOTES: Record<number, string> = {
-  0: 'Open warmly. Say in two lines what happens: 8 short exercises, about an hour, one question at a time; they leave with a stage-1 brief and a roadmap page; they can stop any time and /021 roadmap picks up where they left off. Then ask for the idea in one breath. Also get a short product name.',
+  0: 'Open warmly. Say in two lines what happens: 8 short exercises and a quick sketch of the rest, a little over an hour, one question at a time; they leave with a stage-1 brief and a roadmap page; they can stop any time and /021 roadmap picks up where they left off. Then ask for the idea in one breath. Also get a short product name.',
   1: 'Draw jobs out of the idea. Watch for features disguised as jobs (“contract analysis”): ask when it happens and what it gets them. Record each job as When…, I want…, so….',
   2: 'Ask who would pay today, and push for a named person or business. A named payer is evidence; “people like me” is an assumption. Ask what they do instead now, and roughly what they would pay.',
   3: 'Features go under jobs. Then walk the paying job’s journey step by step, from the very first thing the customer does. Keep asking “and then what happens?” until the job’s “so” is reached, then record journey-ends-at-so.',
@@ -19,6 +19,7 @@ const STATION_NOTES: Record<number, string> = {
   5: 'Ask them to walk the journey as the customer, touching only stage 1. Each step with nothing under it is a pink gap: ask what would cover it. New gaps are the walk working, so say so.',
   6: 'Change roles out loud: “I’m now the visiting table.” For each stage-1 feature ask: would they still pay without this? Push back once on a “no” that sounds like habit (“every app has accounts”). A yes moves it out and saves only the pieces nothing else needs: say the saving. The founder has the last word, and you record their reason.',
   7: 'Stories only for stage 1, one per journey step: As a…, I want to…, so that…. Then ask what they would SEE if it works: that is the “done when”. Reject “works well”, “fast”, “easy”: ask what they would look at to know.',
+  9: 'This is a sketch in pencil, not a plan: say so. YOU draft it and they choose. Group the features outside stage 1 into stages 2–4 (and later) by the next job each group unlocks, and propose names for ALL the later stages together in one question, from the job each unlocks (stage-name, one change per stage). Keep the sketch quick: confirm the dependencies in one question, the names in one, then the order. Draft what each later feature needs before it can work (needs) and ask them to confirm (deps-confirmed). If a stage needs a later one, propose moving a feature (column). Then ask the one value question: which stage would customers pay for next? Reorder by their answer and record sketch-ordered. Do not write stories, size or argue down these stages: that waits until stage 1 has met customers.',
   8: 'Read the facilitator’s six checks back, ask for three real test cases (one nasty), and ask whether five or six features is small enough to build in a day. Every unknown needs a test: how would they find out?',
 }
 
@@ -52,7 +53,7 @@ export function coachSection(s: Session, stuck: number): string {
     '7. When a station completes, say it in one line (“✓ Exercise 3 done. Next: …”) before the next question.',
     '8. Keep every turn short. No headings, no long lists.',
     '',
-    `## Where they are: exercise ${st} of 8, ${STATIONS[st]!.name}`,
+    `## Where they are: exercise ${st} of ${LAST}, ${STATIONS[st]!.name}`,
     `Goal: ${STATIONS[st]!.goal} Done when: ${STATIONS[st]!.done}. About ${minutesLeft(st)} minutes to go.`,
     STATION_NOTES[st] ?? '',
     '',
@@ -80,6 +81,7 @@ changes is a list; each has an op:
 - stage-name {stage, name}
 - story {step, text ("As a…, I want to…, so that…"), done ("Done when…" something you can see)}
 - test-cases {text}  - small-enough {value}  - unknown {id?, text, test?}
+- needs {feature, needs: [feature ids it can't work without]}  - deps-confirmed {value}  - sketch-ordered {value}
 Ids are made for you (J1, F1, P1, U1) when left out.`
 
 export const RECORD_SCHEMA = {

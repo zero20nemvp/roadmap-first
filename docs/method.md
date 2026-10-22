@@ -20,6 +20,8 @@ Too big, and you've built a lot before you learn anything. Too small, and nothin
 4. **Prove it stands alone.** Walk the journey using only stage-1 features. A step that needs something outside stage 1 means it isn't done.
 5. **Argue it down.** For every feature, ask: would they still pay without this? If yes, it moves to stage 2.
 
+Then **sketch the rest in pencil.** The other features are grouped into later stages, named by the job each unlocks, in an order that can be built (no stage needs a later one) and that you'd bet customers would pay for next. It's deliberately rough: what stage 1's customers tell you will reshape it.
+
 ## The words it uses
 
 | Word | Meaning |

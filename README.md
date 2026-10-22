@@ -45,7 +45,7 @@ That starts a session in the current folder, or picks one up where you left off.
 
 If you’re lost, type “where am I”. If you’re stuck, say “I don’t know” and the coach will help.
 
-## The 8 exercises
+## The 8 exercises, and a sketch of the rest
 
 0. **Your idea:** one sentence, and who it’s for
 1. **Write the jobs** 🟨 When…, I want…, so…
@@ -56,6 +56,7 @@ If you’re lost, type “where am I”. If you’re stuck, say “I don’t kno
 6. **Argue it down:** would they still pay without it? Claude plays the visiting table
 7. **Write stage 1’s stories** 🟩 one per step, each with a “done when” you can check
 8. **Write the brief:** the facilitator’s six checks, test cases, and a test for every unknown
+9. **Sketch the rest** ✏️ the later stages in pencil: Claude drafts the groups, you choose the order
 
 A **piece** is one screen, prompt, kind of data or outside service. Shared pieces count once, so every cut has an exact price.
 

@@ -1,6 +1,6 @@
 # The exercises
 
-There are nine stations: your idea, then the workshop's 8 exercises. You move on when a station's **done when** holds, not when the conversation feels finished. The plugin checks this, not Claude. The minutes are a rough guide.
+There are ten stations: your idea, the workshop's 8 exercises, and a short sketch of the rest of the roadmap. You move on when a station's **done when** holds, not when the conversation feels finished. The plugin checks this, not Claude. The minutes are a rough guide.
 
 Each station below shows what it's for, what you'll be asked, what “done” means, who decides, and how the workshop's Redline example answered it.
 
@@ -132,5 +132,23 @@ Each station below shows what it's for, what you'll be asked, what “done” me
 - [ ] Every story has a “done when”
 - [ ] Everything left out names its stage
 - [ ] Small enough to build in a day
+
+---
+
+## 9 · Sketch the rest · ~5 min · ✏️ in pencil
+
+**What it's for.** Stage 1 is planned in detail. Everything else gets a rough order, so you can see where the product goes next without planning it before anyone has paid.
+
+**You'll be asked.** Claude drafts the sketch: it groups the features outside stage 1 into stages 2, 3, 4 and later, by the next job each group unlocks, and suggests a name for each stage. It also drafts what each later feature needs before it can work, and asks you to confirm. Then comes the one question that's yours: **which of these would customers pay for next?**
+
+**Done when.** Every later stage has a name, no stage needs something from a stage after it, no stage is left empty before a filled one, and you've chosen the order.
+
+**Who decides.** Claude drafts the groups, the names and the dependencies, because that's the technical part. You confirm them and choose the order, because the order is a bet on value.
+
+**What it doesn't do.** No stories, no piece counts to argue, no cutting. Those wait until stage 1 has met real customers, who will probably change the order. See [After 021](build-day.md).
+
+**Redline.** Stage 2 *Push back* (pushback email, PDF upload, emailed report), stage 3 *Regulars* (accounts, standard terms, compare versions) and stage 4 *Studios* (team workspace, browser extension). Standard terms, compare and teams all need accounts, so none of them can come before stage 3.
+
+---
 
 When every gap is filled, 021 writes `./021/roadmap.html` and `./021/brief.md`. See [Your files](outputs.md).

@@ -14,6 +14,8 @@ export type Feature = {
   pieces: string[]
   stage: Column | null
   argued?: { keep: boolean; reason: string }
+  /** Features this one can't work without; drafted for the later stages. */
+  needs?: string[]
 }
 export type Piece = { id: string; name: string; kind: PieceKind }
 export type Step = { n: number; text: string; feature?: string }
@@ -37,6 +39,8 @@ export type Session = {
   stories: Story[]
   testCases: string
   smallEnough: boolean
+  depsConfirmed: boolean
+  sketchOrdered: boolean
   unknowns: Unknown[]
   parked: string[]
   moves: Move[]
@@ -58,6 +62,8 @@ export const emptySession = (): Session => ({
   stories: [],
   testCases: '',
   smallEnough: false,
+  depsConfirmed: false,
+  sketchOrdered: false,
   unknowns: [],
   parked: [],
   moves: [],
@@ -79,7 +85,12 @@ export const STATIONS: readonly Station[] = [
   { n: 6, name: 'Argue it down', short: 'Argue', goal: 'For each stage-1 feature: would they still pay without it?', done: 'Every stage-1 feature kept or moved, with your reason', minutes: 10 },
   { n: 7, name: 'Write stage 1’s stories', short: 'Stories', goal: 'One story per journey step, each with “done when”.', done: 'Every step has a story, and every “done when” can be checked', minutes: 10 },
   { n: 8, name: 'Write the brief', short: 'Brief', goal: 'Fill in the brief and pass the facilitator’s check.', done: 'All six brief checks pass, and every unknown has a test', minutes: 5 },
+  { n: 9, name: 'Sketch the rest', short: 'Sketch', goal: 'Group everything outside stage 1 into later stages, in pencil.', done: 'Every later stage is named, none needs a stage after it, and you chose the order', minutes: 5 },
 ]
+
+/** The last station; a session past it is complete. */
+export const LAST = STATIONS.length - 1
+export const DONE = STATIONS.length
 
 export const minutesLeft = (station: number): number =>
   STATIONS.filter(st => st.n >= station).reduce((sum, st) => sum + st.minutes, 0)
@@ -184,11 +195,33 @@ export function gaps(s: Session): Gap[] {
   for (const u of s.unknowns) {
     if (!u.test) add(8, `test:${u.id}`, `How you would test: “${u.text}”`, 'An assumption with no test stays a guess.')
   }
+
+  // 9 · sketch the rest: in pencil, but in an order that can be built
+  const rest = s.features.filter(f => f.stage !== 1 && f.stage !== null)
+  if (rest.length) {
+    const used = ([2, 3, 4] as StageNo[]).filter(n => rest.some(f => f.stage === n))
+    for (const n of used) {
+      if (n > 2 && !used.includes((n - 1) as StageNo)) add(9, `stage-gap:${n - 1}`, `Stage ${n - 1} is empty but stage ${n} isn’t: move stage ${n} up, or fill stage ${n - 1}`, 'Stages are built in order, one after another.')
+    }
+    if (!s.depsConfirmed) add(9, 'deps', 'Confirm what each later feature needs before it can work (Claude drafts it)', 'A stage can only use what is built before it.')
+    for (const f of rest) {
+      for (const id of f.needs ?? []) {
+        const g = s.features.find(x => x.id === id)
+        if (g && rank(g.stage) > rank(f.stage)) add(9, `order:${f.id}:${g.id}`, `${f.id} ${f.name} (${columnName(f.stage)}) needs ${g.id} ${g.name}, which is in ${columnName(g.stage)}`, 'A stage that needs a later one can’t be built: move one of them.')
+      }
+    }
+    const unnamed = used.filter(n => !s.stageNames[n])
+    if (unnamed.length) add(9, 'stage-names', `Names for ${unnamed.map(n => `stage ${n} (${rest.filter(f => f.stage === n).map(f => f.name).join(', ')})`).join('; ')}, from the job each unlocks`, 'A stage is sold by what it lets customers do.')
+    if (!s.sketchOrdered) add(9, 'sketch-order', 'Which of the later stages would customers pay for next?', 'The order is a bet on value, so it is yours to make.')
+  }
   return out
 }
 
-/** The first station with a gap; 9 when every gap is filled. */
-export const stationOf = (s: Session): number => gaps(s)[0]?.station ?? 9
+/** Where a column sits in build order; no column sorts last. */
+const rank = (c: Column | null): number => (c === null ? 99 : c === 'later' ? 5 : c)
+
+/** The first station with a gap; DONE when every gap is filled. */
+export const stationOf = (s: Session): number => gaps(s)[0]?.station ?? DONE
 
 export const isComplete = (s: Session): boolean => gaps(s).length === 0
 
@@ -232,6 +265,9 @@ export type Change =
   | { op: 'test-cases'; text: string }
   | { op: 'small-enough'; value: boolean }
   | { op: 'unknown'; id?: string; text: string; test?: string }
+  | { op: 'needs'; feature: string; needs: string[] }
+  | { op: 'deps-confirmed'; value: boolean }
+  | { op: 'sketch-ordered'; value: boolean }
 
 export type Applied = { session: Session; events: string[]; errors: string[] }
 
@@ -349,6 +385,7 @@ export function apply(prev: Session, changes: readonly Change[]): Applied {
         if (!f) { errors.push(`no feature ${c.feature}`); break }
         if (f.stage === c.stage) break
         const before = pieceCount(s)
+        if (f.stage !== 1 && c.stage !== 1) s.sketchOrdered = false
         f.stage = c.stage
         const delta = track((c.stage === 1 ? '+ ' : '− ') + f.name, before)
         events.push(`${f.id} ${f.name} → ${columnName(c.stage)}${delta ? ` (${signed(delta)} pieces)` : ''}`)
@@ -398,6 +435,21 @@ export function apply(prev: Session, changes: readonly Change[]): Applied {
         }
         break
       }
+      case 'needs': {
+        const f = feature(c.feature)
+        if (!f) { errors.push(`no feature ${c.feature}`); break }
+        const missing = c.needs.filter(id => !feature(id))
+        if (missing.length) { errors.push(`no feature ${missing.join(', ')}`); break }
+        f.needs = c.needs.filter(id => id !== f.id)
+        break
+      }
+      case 'deps-confirmed':
+        s.depsConfirmed = c.value
+        break
+      case 'sketch-ordered':
+        s.sketchOrdered = c.value
+        if (c.value) events.push('✏️ The rest of the roadmap is sketched')
+        break
       default:
         errors.push(`unknown change ${(c as { op: string }).op}`)
     }
@@ -429,14 +481,14 @@ export const progressDots = (station: number): string =>
 export function summary(s: Session): string {
   const st = stationOf(s)
   const lines = [
-    `Station: ${st > 8 ? 'complete' : `${st} · ${STATIONS[st]!.name}`} ${progressDots(st)}`,
+    `Station: ${st > LAST ? 'complete' : `${st} · ${STATIONS[st]!.name}`} ${progressDots(st)}`,
     `Stage 1: ${stage1(s).length} features, ${pieceCount(s)} pieces · gaps left: ${gaps(s).length}`,
   ]
   if (s.name) lines.push(`Name: ${s.name}`)
   if (s.idea?.pitch) lines.push(`Idea: ${s.idea.pitch}${s.idea.who ? ` (for ${s.idea.who})` : ''}`)
   if (s.jobs.length) lines.push('Jobs: ' + s.jobs.map(j => `${j.id}${j.id === s.pays?.job ? '●' : ''} When ${j.when}, I want ${j.want}, so ${j.so}`).join(' | '))
   if (s.pays) lines.push(`Pays: ${s.pays.job} · who: ${s.pays.who || '?'} · why: ${s.pays.why || '?'} · price: ${s.pays.price || '?'}`)
-  if (s.features.length) lines.push('Features: ' + s.features.map(f => `${f.id}(${f.job}, ${columnName(f.stage)}${f.pieces.length ? ', pieces ' + f.pieces.join('+') : ''}${f.argued ? (f.argued.keep ? ', kept' : ', moved') : ''}) ${f.name}`).join(' | '))
+  if (s.features.length) lines.push('Features: ' + s.features.map(f => `${f.id}(${f.job}, ${columnName(f.stage)}${f.pieces.length ? ', pieces ' + f.pieces.join('+') : ''}${f.argued ? (f.argued.keep ? ', kept' : ', moved') : ''}${f.needs?.length ? ', needs ' + f.needs.join('+') : ''}) ${f.name}`).join(' | '))
   if (s.journey.length) lines.push('Journey: ' + s.journey.map(j => `${j.n}. ${j.text}${j.feature ? ` [${j.feature}]` : ''}`).join(' | ') + (s.journeyEndsAtSo ? ' (ends at the so)' : ''))
   if (s.pieces.length) lines.push('Pieces: ' + s.pieces.map(p => `${p.id} ${p.name} (${p.kind})`).join(' | ') + (s.piecesConfirmed ? ' (count confirmed)' : ''))
   if (s.stories.length) lines.push('Stories: ' + s.stories.map(x => `step ${x.step}: ${x.text} — done when ${x.done}`).join(' | '))
@@ -455,13 +507,21 @@ export function whereText(s: Session): string {
     '',
     ...rows,
     '',
-    st > 8
+    st > LAST
       ? 'Every gap is filled. /021 view opens your roadmap, /021 brief shows the brief.'
       : `Now: ${STATIONS[st]!.goal}\nDone when: ${STATIONS[st]!.done}\nNext question is about: ${g[0]!.text}`,
-    `Stage 1 so far: ${stage1(s).length} features, ${pieceCount(s)} pieces · ${g.length} gaps left · about ${minutesLeft(Math.min(st, 8))} min to go`,
+    `Stage 1 so far: ${stage1(s).length} features, ${pieceCount(s)} pieces · ${g.length} gaps left · about ${minutesLeft(Math.min(st, LAST))} min to go`,
     '',
     'Stuck? Say “I don’t know” and the coach helps; /021 park sets the question aside as an unknown to test.',
   ].join('\n')
+}
+
+/** Stages after stage 1 that hold features, in build order. */
+export function laterStages(s: Session): { label: string; features: string[] }[] {
+  return ([2, 3, 4, 'later'] as Column[])
+    .map(c => ({ c, features: s.features.filter(f => f.stage === c).map(f => f.name) }))
+    .filter(x => x.features.length)
+    .map(x => ({ label: x.c === 'later' ? 'Later' : `Stage ${x.c}${s.stageNames[x.c as StageNo] ? ' · ' + s.stageNames[x.c as StageNo] : ''}`, features: x.features }))
 }
 
 /** The stage-1 brief as markdown: the workshop's one page. */
@@ -489,6 +549,7 @@ export function briefMarkdown(s: Session): string {
     '## Stories, in journey order',
     ...(s.stories.length ? s.stories.map((st, i) => `${i + 1}. ${st.text}\n   *Done when:* ${st.done}`) : ['—']),
     '',
+    ...(laterStages(s).length ? ['## The rest of the roadmap, in pencil', ...laterStages(s).map(x => `- **${x.label}:** ${x.features.join(', ')}`), '', '_A sketch: expect it to change once stage 1 meets customers._', ''] : []),
     '## Unknowns to test with customers',
     ...(s.unknowns.length ? s.unknowns.map(u => `- ${u.text}${u.test ? ` — **test:** ${u.test}` : ''}`) : ['- none recorded']),
     '',
@@ -519,12 +580,22 @@ export function view(s: Session) {
     jobs: s.jobs.map(j => ({ id: j.id, text: `When ${j.when}, I want ${j.want}, so ${j.so}.`, pays: j.id === s.pays?.job })),
     payingJob: job ? `When ${job.when}, I want ${job.want}, so ${job.so}.` : '',
     payingJobId: job?.id ?? '',
-    features: s.features.map(f => ({ id: f.id, job: f.job, name: f.name, stage: f.stage === 'later' || f.stage === null ? 5 : f.stage })),
+    features: s.features.map(f => ({ id: f.id, job: f.job, name: f.name, stage: f.stage === 'later' || f.stage === null ? 5 : f.stage, needs: f.needs ?? [] })),
     journey: s.journey.map(j => ({ n: j.n, text: j.text, f: j.feature ?? '' })),
     moves: [...s.moves, { label: 'Stage 1', delta: 0, kind: 'end' as const }],
     pieces: piecesOf(s, s1).map(p => ({ id: p.id, name: p.name, kind: p.kind === 'service' ? 'outside service' : p.kind, by: s1.filter(f => f.pieces.includes(p.id)).map(f => f.id) })),
     argued: s.features.filter(f => f.argued).map(f => ({ f: f.name, id: f.id, keep: f.argued!.keep, reason: f.argued!.reason, stage: columnName(f.stage), saves: f.argued!.keep ? 0 : savedBy(f.name) })),
-    stages: ([1, 2, 3, 4] as StageNo[]).map(n => ({ n, name: s.stageNames[n] ?? (n === 1 ? 'Sold first' : `Stage ${n}`), on: n === 1 ? 'Sold first' : `Builds on 1${n > 2 ? '–' + (n - 1) : ''}` })),
+    stages: ([1, 2, 3, 4] as StageNo[]).map(n => {
+      const here = s.features.filter(f => f.stage === n)
+      return {
+        n,
+        name: s.stageNames[n] ?? (n === 1 ? 'Sold first' : `Stage ${n}`),
+        on: n === 1 ? 'Sold first' : `Builds on 1${n > 2 ? '–' + (n - 1) : ''}`,
+        pieces: n === 1 ? pieceCount(s) : piecesOf(s, here).length,
+        sketch: n > 1,
+      }
+    }),
+    sketched: s.sketchOrdered,
     stories: s.stories.map(st => ({ step: `${st.step} · ${st.feature}`, s: st.text, done: st.done })),
     unknowns: s.unknowns.map(u => ({ k: u.from ? 'Parked' : 'Assumption', a: u.text, test: u.test })),
     log: s.log.map(l => ({ when: STATIONS[l.station]?.short ?? 'Brief', q: l.q, a: l.a, ev: l.ev === 'evidence' ? 'e' : 'a' })),

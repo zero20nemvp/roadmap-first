@@ -24,10 +24,18 @@
 6. As a freelancer, I want wording to ask for instead of each flag, so that I can push back without a lawyer.
    *Done when:* Every flag has a replacement clause to copy.
 
+## The rest of the roadmap, in pencil
+- **Stage 2 · Push back:** Pushback email, PDF upload, Email me the report
+- **Stage 3 · Regulars:** Accounts and history, Your standard terms, Compare two versions
+- **Stage 4 · Studios:** Team workspace, Browser extension
+
+_A sketch: expect it to change once stage 1 meets customers._
+
 ## Unknowns to test with customers
 - Freelancers will pay £9 a contract. — **test:** Put a payment link in front of 10 freelancers. Do 3 pay?
 - Pasting text is fine; PDFs can wait. — **test:** Count how many people give up at the paste step.
 - A plain-English why is enough to act on, without a lawyer. — **test:** After the report, ask: would you send a pushback based on this?
+- Freelancers want the pushback email more than accounts. — **test:** Ask the first ten paying users which they would pay for next.
 
 ## Facilitator check
 - [x] A real person who pays

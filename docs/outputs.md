@@ -18,7 +18,7 @@ This is a single file that works offline. It reads top to bottom:
 3. **The journey:** the strip of steps with the feature under each, and a pink note for any step stage 1 can't do yet
 4. **Size it in pieces:** a chart of how the count moved (the first draft, what the walk added, each cut), and a map of which stage-1 features use which pieces, with shared ones highlighted
 5. **Argue it down:** every feature you argued, your answer to “would they still pay without it?”, where it went and what it saved
-6. **The flipchart:** the stage columns, with stage 1 marked *Build first*
+6. **The flipchart:** the stage columns, with stage 1 marked *Build first* and the later stages drawn in pencil (dashed, marked ✏️ *Sketch*), each with its name, what it builds on, and what each feature needs
 7. **Stories:** stage 1's green notes, each with its “done when”
 8. **Unknowns to test:** each assumption or parked question, with its test
 9. **The brief:** the one page, the six facilitator checks, and a **Copy brief** button
@@ -35,6 +35,7 @@ The brief is the workshop's one page, in plain markdown:
 - **In, and out:** stage 1's features and piece count, then everything else with its stage
 - **Test cases:** the examples you'll run after every change
 - **Stories, in journey order:** each with its “done when”
+- **The rest of the roadmap, in pencil:** the later stages, named, in order
 - **Unknowns to test with customers**
 - **Facilitator check:** the six checks, ticked
 - **The build-day prompt** to paste into Claude

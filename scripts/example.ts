@@ -114,7 +114,7 @@ say('Would Alex still pay without the red-flag report?', 'No. It is the reason a
   { op: 'argue', feature: 'F5', keep: true, reason: 'The journey’s last step needs it' },
   { op: 'unknown', text: 'A plain-English why is enough to act on, without a lawyer.', test: 'After the report, ask: would you send a pushback based on this?' },
 ])
-s.stageNames = { 1: 'Check a contract', 2: 'Push back', 3: 'Regulars', 4: 'Studios' }
+s.stageNames = { 1: 'Check a contract' }
 
 station = 7
 say('For each step: what would Alex see if it works?', 'Five stories, in journey order.', 'evidence', [
@@ -131,6 +131,21 @@ say('Which contracts will you test with after every change?', 'Three sample cont
   { op: 'test-cases', text: 'Three sample contracts, one of them nasty' },
 ])
 say('Five features, six pieces. Small enough to build in a day?', 'Yes.', 'evidence', [{ op: 'small-enough', value: true }])
+
+station = 9
+say('Everything outside stage 1, in pencil: which features does each later one need first?', 'Compare and standard terms need accounts; the rest stand on stage 1.', 'evidence', [
+  { op: 'needs', feature: 'F10', needs: ['F7'] },
+  { op: 'needs', feature: 'F12', needs: ['F7'] },
+  { op: 'needs', feature: 'F9', needs: ['F7'] },
+  { op: 'deps-confirmed', value: true },
+  { op: 'stage-name', stage: 2, name: 'Push back' },
+  { op: 'stage-name', stage: 3, name: 'Regulars' },
+  { op: 'stage-name', stage: 4, name: 'Studios' },
+])
+say('Which of these would freelancers pay for next?', 'Push back: the pushback email is what they asked for most.', 'assumption', [
+  { op: 'sketch-ordered', value: true },
+  { op: 'unknown', text: 'Freelancers want the pushback email more than accounts.', test: 'Ask the first ten paying users which they would pay for next.' },
+])
 
 if (gaps(s).length) throw new Error('finished example still has gaps: ' + gaps(s).map(g => g.code).join(', '))
 writeFileSync(`${root}examples/redline/finished.json`, JSON.stringify(s, null, 2) + '\n')

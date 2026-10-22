@@ -24,7 +24,7 @@ Everything lives under one command, `/021`. Type `/021` on its own to see the li
 The way in. In a folder with no `./021/roadmap.json`, it starts fresh and shows the route. In a folder with one, it shows where you are and carries on from the next question. Either way, Claude asks the next question straight away.
 
 ### `/021 where`
-For when you've lost track. It lists all nine stations with ✓ for done, ▶ for where you are and · for still to come. It then shows the current exercise's goal and “done when”, the next question, the stage-1 size so far, the gaps left and roughly how many minutes are left.
+For when you've lost track. It lists all ten stations with ✓ for done, ▶ for where you are and · for still to come. It then shows the current exercise's goal and “done when”, the next question, the stage-1 size so far, the gaps left and roughly how many minutes are left.
 
 You don't need to remember this command. Typing “where am I?”, “I'm lost” or “help” in your own words gets you the same answer in three lines.
 

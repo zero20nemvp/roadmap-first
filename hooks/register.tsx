@@ -3,6 +3,7 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import { LADDER, RECORD_DESCRIPTION, RECORD_SCHEMA, coachSection } from './coach'
 import {
+  LAST,
   STATIONS,
   apply,
   briefChecks,
@@ -82,7 +83,7 @@ async function save($: EngineInterface, s: Session) {
 
 function paintStatus($: EngineInterface, s: Session) {
   const st = stationOf(s)
-  $.ui.status(st > 8
+  $.ui.status(st > LAST
     ? `021 ▸ stage 1 ready · ${stage1(s).length} features · ${pieceCount(s)} pieces · /021 view`
     : `021 ▸ ${st}/8 ${STATIONS[st]!.short} · ${pieceCount(s)} pieces · ${gaps(s).length} gaps`)
 }
@@ -129,7 +130,7 @@ export const register: Register = on => {
       await update($, saved, () => JSON.stringify(s, null, 2))
       paintStatus($, s)
       const st = stationOf(s)
-      $.ui.toast(st > 8 ? `021: ${s.name || 'your roadmap'} is complete. /021 view opens it.` : `021: welcome back. You were at exercise ${st}, ${STATIONS[st]!.name}. /021 roadmap carries on.`)
+      $.ui.toast(st > LAST ? `021: ${s.name || 'your roadmap'} is complete. /021 view opens it.` : `021: welcome back. You were at exercise ${st}, ${STATIONS[st]!.name}. /021 roadmap carries on.`)
     }
     return next(e)
   })
@@ -150,7 +151,7 @@ export const register: Register = on => {
     const next = applied.session
     next.log.push({
       at: new Date(await $.clock.now()).toISOString(),
-      station: Math.min(before, 8),
+      station: Math.min(before, LAST),
       q: String(e.question ?? ''),
       a: String(e.answer ?? ''),
       ev: (e.evidence === 'assumption' ? 'assumption' : 'evidence') as Evidence,
@@ -169,13 +170,13 @@ export const register: Register = on => {
     const lines: string[] = []
     if (applied.errors.length) lines.push('Not recorded (ask about these): ' + applied.errors.join('; '))
     if (after > before) {
-      for (let st = before; st < Math.min(after, 9); st++) $.ui.toast(`✓ Exercise ${st} done: ${STATIONS[st]!.name}`)
+      for (let st = before; st < Math.min(after, LAST + 1); st++) $.ui.toast(`✓ Exercise ${st} done: ${STATIONS[st]!.name}`)
       void chime($)
-      lines.push(after > 8 ? '✓ Every gap is filled. Stage 1 is ready.' : `✓ Exercise ${before} is done. Now exercise ${after}: ${STATIONS[after]!.name}. Say so in one line.`)
+      lines.push(after > LAST ? '✓ Every gap is filled. Stage 1 is ready.' : `✓ Exercise ${before} is done. Now exercise ${after}: ${STATIONS[after]!.name}. Say so in one line.`)
     } else if (g.length > gaps(s).length) {
       lines.push(`The answer opened ${g.length - gaps(s).length} new gap(s). That is the process working; tell them so.`)
     }
-    if (after > 8) {
+    if (after > LAST) {
       await writeOutputs($, next)
       lines.push(`The roadmap page and brief are written to ${DIR}/roadmap.html and ${DIR}/brief.md. Tell them; /021 view opens the page.`)
     } else {
@@ -226,7 +227,7 @@ export const register: Register = on => {
       context.push(`021: the founder is stuck on “${g.text}”. ${LADDER[Math.min(n, LADDER.length - 1)]}`)
     }
     if (LOST.test(e.text) && e.text.length < 80) {
-      $.ui.toast(`021: you’re at exercise ${Math.min(stationOf(s), 8)}. /021 where shows the whole route.`)
+      $.ui.toast(`021: you’re at exercise ${Math.min(stationOf(s), LAST)}. /021 where shows the whole route.`)
       context.push(`021: the founder may feel lost. Before anything else, tell them in three short lines: where they are (exercise and name), what is done, and what comes next. Then ask the next question.\n${whereText(s)}`)
     }
     return next({ ...e, context })
@@ -247,7 +248,7 @@ export const register: Register = on => {
       case 'start': {
         if (s) {
           const st = stationOf(s)
-          await begin($, s, `Carry on with my 021 roadmap. I was at exercise ${Math.min(st, 8)}.`)
+          await begin($, s, `Carry on with my 021 roadmap. I was at exercise ${Math.min(st, LAST)}.`)
           return { text: `${whereText(s)}\n\nPicking up where you left off…` }
         }
         const fresh = emptySession()
@@ -256,7 +257,7 @@ export const register: Register = on => {
           text: [
             '021 · roadmap-first, one question at a time',
             '',
-            'You’ll work through 8 short exercises, the same ones the workshop runs with post-its:',
+            'You’ll work through 8 short exercises, the same ones the workshop runs with post-its, then sketch the rest of the roadmap:',
             ...STATIONS.slice(1).map(x => `  ${x.n}  ${x.name}`),
             '',
             `About ${minutesLeft(0)} minutes in all. You leave with a one-page stage-1 brief and a roadmap page you can scroll and share.`,
@@ -285,7 +286,7 @@ export const register: Register = on => {
       case 'back': {
         if (!s) return { text: 'No roadmap here yet.' }
         const n = Number(arg)
-        if (!Number.isInteger(n) || n < 0 || n > 8) return { text: 'Which exercise? /021 back 3 goes back to exercise 3.' }
+        if (!Number.isInteger(n) || n < 0 || n > LAST) return { text: 'Which exercise? /021 back 3 goes back to exercise 3.' }
         void $.prompt.submit({ text: `I want to go back to exercise ${n}, ${STATIONS[n]!.name}, and change an answer. Show me what I said there and ask what I’d like to change.` })
         return { text: `Going back to exercise ${n}, ${STATIONS[n]!.name}. Nothing is lost: what you change there carries forward.` }
       }
@@ -313,7 +314,7 @@ export const register: Register = on => {
         if (!s) return { text: 'No roadmap here yet. /021 roadmap starts one, or /021 demo loads the example.' }
         await writeOutputs($, s)
         const isOpen = await openFile($, file('roadmap.html'))
-        return { text: `${isOpen ? 'Opened' : 'Wrote'} ./${DIR}/roadmap.html${stationOf(s) <= 8 ? ' (in progress: it fills in as you go)' : ''}. The brief is in ./${DIR}/brief.md.` }
+        return { text: `${isOpen ? 'Opened' : 'Wrote'} ./${DIR}/roadmap.html${stationOf(s) <= LAST ? ' (in progress: it fills in as you go)' : ''}. The brief is in ./${DIR}/brief.md.` }
       }
       case 'brief': {
         if (!s) return { text: 'No roadmap here yet.' }
@@ -360,7 +361,7 @@ export const register: Register = on => {
     const { Box, Text } = $.ui.resolve(e)
     const st = stationOf(s)
     const g = gaps(s)
-    if (st > 8) {
+    if (st > LAST) {
       return (
         <Box flexDirection="row" gap={1}>
           <Text color={ACCENT} bold>021</Text>
@@ -369,12 +370,12 @@ export const register: Register = on => {
         </Box>
       )
     }
-    const role = st === 6 ? ' · Claude is the visiting table' : ''
+    const role = st === 6 ? ' · Claude is the visiting table' : st === LAST ? ' · in pencil: Claude drafts, you choose the order' : ''
     return (
       <Box flexDirection="column">
         <Box flexDirection="row" gap={1}>
           <Text color={ACCENT} bold>021</Text>
-          <Text bold>Ex {st} of 8 · {STATIONS[st]!.name}</Text>
+          <Text bold>Ex {st} of {LAST} · {STATIONS[st]!.name}</Text>
           <Text color={ACCENT}>{progressDots(st)}</Text>
           <Text dimColor>~{minutesLeft(st)} min left{role}</Text>
         </Box>
@@ -456,7 +457,17 @@ export const register: Register = on => {
             {s1.map(f => (
               <Text backgroundColor={NOTE.blue} color={NOTE.ink} wrap="truncate-end"> {f.id} {f.name}{f.argued ? (f.argued.keep ? ' ✓' : '') : ' ?'} </Text>
             ))}
-            {later.length ? <Text dimColor wrap="wrap">Later: {later.map(f => f.name).join(', ')}</Text> : null}
+            {later.length && st < LAST ? <Text dimColor wrap="wrap">Later: {later.map(f => f.name).join(', ')}</Text> : null}
+          </Box>
+        ) : null}
+        {later.length && st >= LAST ? (
+          <Box flexDirection="column">
+            <Text dimColor>THE REST, IN PENCIL ✏️</Text>
+            {([2, 3, 4, 'later'] as const).filter(n => later.some(f => f.stage === n)).map(n => (
+              <Text wrap="truncate-end">
+                {n === 'later' ? 'Later' : `${n} ${s.stageNames[n] ?? '(no name yet)'}`}: {later.filter(f => f.stage === n).map(f => f.name).join(', ')}
+              </Text>
+            ))}
           </Box>
         ) : null}
         {g.filter(x => x.station === 5).length ? (
