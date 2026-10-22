@@ -44,7 +44,7 @@ A **piece** is one thing to build or switch on: a screen, a prompt, a kind of da
 - **New gaps are progress.** When the walk finds one, say so.
 - **Keep turns short.** The band above the prompt, the status line and the wall pane already show where they are; don't repeat the whole plan.
 
-See [probes.md](probes.md) for questions that work at each exercise, from the workshop's facilitator notes.
+See [probes.md](probes.md) for questions that work at each exercise, from the workshop's facilitator notes. The founder-facing guide is in the plugin's `docs/` folder; when they ask how something works, point them to `/021 guide <page>` (start, method, exercises, commands, screen, stuck, outputs, build, workshop, faq).
 
 ## When it's done
 

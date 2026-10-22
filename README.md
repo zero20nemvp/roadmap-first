@@ -4,6 +4,21 @@ A Claude Code plugin that coaches you, one question at a time, to **stage 1**: t
 
 Everything it needs ships inside the plugin. It has no other dependencies and works offline.
 
+## Guide
+
+The full guide is in [`docs/`](docs/README.md), and you can read every page inside Claude Code with `/021 guide`:
+
+- [Getting started](docs/getting-started.md): install it, run your first session, try the demo
+- [The method](docs/method.md): why roadmap-first, and the words it uses
+- [The exercises](docs/exercises.md): what each station asks, what “done” means, and who decides
+- [Commands](docs/commands.md): every `/021` command
+- [Reading the screen](docs/screen.md): the band, status line, wall pane, toasts and chime
+- [Stuck or lost](docs/stuck.md): the stuck ladder, parking, going back, starting over
+- [Your files](docs/outputs.md): `roadmap.html`, `brief.md`, `roadmap.json`
+- [After 021](docs/build-day.md): build day, testing your unknowns, planning stage 2
+- [Running a workshop](docs/workshop.md): post-it colours, photo import, printing, timing
+- [Questions and fixes](docs/faq.md)
+
 ## Use it
 
 ```
@@ -26,6 +41,7 @@ That starts a session in the current folder, or picks one up where you left off.
 | `/021 print` | Print your notes as post-its |
 | `/021 demo` | Load the workshop’s Redline example, ready at exercise 6 |
 | `/021 mute` | Turn the chime off or on |
+| `/021 guide [page]` | Read the guide inside Claude Code |
 
 If you’re lost, type “where am I”. If you’re stuck, say “I don’t know” and the coach will help.
 

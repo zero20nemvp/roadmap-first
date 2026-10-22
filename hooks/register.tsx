@@ -53,7 +53,16 @@ const SUBCOMMANDS = [
   ['print', 'Write a printable sheet of your notes as post-its'],
   ['demo', 'Load the Redline example, ready at exercise 6'],
   ['mute', 'Turn the station chime off or on'],
+  ['guide [page]', 'Read the guide: start, method, exercises, commands, screen, stuck, outputs, build, workshop, faq'],
 ] as const
+
+// `/021 guide <page>` → the file in docs/
+const GUIDE: Record<string, string> = {
+  '': 'README', index: 'README', start: 'getting-started', 'getting-started': 'getting-started', install: 'getting-started',
+  method: 'method', why: 'method', exercises: 'exercises', stations: 'exercises', commands: 'commands',
+  screen: 'screen', band: 'screen', stuck: 'stuck', lost: 'stuck', outputs: 'outputs', files: 'outputs',
+  build: 'build-day', 'build-day': 'build-day', after: 'build-day', workshop: 'workshop', faq: 'faq', help: 'faq',
+}
 
 // The project the session runs in; set at session.start.
 let cwd = ''
@@ -321,6 +330,15 @@ export const register: Register = on => {
       case 'mute': {
         const muted = await update($, isMuted, m => !m)
         return { text: muted ? 'Chime off.' : 'Chime on.' }
+      }
+      case 'guide':
+      case 'docs': {
+        const page = GUIDE[arg.toLowerCase()]
+        if (!page) return { text: `No guide page “${arg}”. Pages: start, method, exercises, commands, screen, stuck, outputs, build, workshop, faq.` }
+        const text = await $.fs.read(`${$.plugin.root}/docs/${page}.md`)
+        // links between pages become the command that opens them
+        const linked = text.replace(/\[([^\]]+)\]\(([a-z-]+)\.md\)/g, (_, label: string, f: string) => `${label} (/021 guide ${Object.keys(GUIDE).find(k => k && GUIDE[k] === f) ?? f})`)
+        return { text: `${linked}\n\nThe whole guide: ${$.plugin.root}/docs/` }
       }
       default:
         return {
