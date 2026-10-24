@@ -130,6 +130,7 @@ test('the coach, the gates and the report see only what is not in the trash', ()
   assert.equal(r.workarounds.length, 0)
   assert.equal(r.jobs[0].from, undefined, 'the link to a trashed workaround is dropped from the report')
   assert.equal(w.jobs[0].from, 'W1', 'but kept on the wall, for when it comes back')
+  assert.doesNotMatch(cutPrompt(w), /trash|W1/, 'the flight plan is cut from what is left')
 })
 
 test('a wall the founder changes steps back to the first step that is open again', () => {

@@ -11,8 +11,9 @@ import Anthropic from '@anthropic-ai/sdk'
 import nodemailer from 'nodemailer'
 import type { Report } from '../web/report.ts'
 import { renderRoadmap } from '../web/roadmap.ts'
-import { apply, CUT_SCHEMA, CUT_SYSTEM, cutPrompt, emptyWall, fromCut, GREETING, STEP_NAMES, summary, SYSTEM, toReport, TOOLS, type Cut, type Wall } from './coach.ts'
-import { due, type Email, facilitatorEmail, type MailLog, parseTemplate, seriesEmail, SERIES, type Template } from './mail.ts'
+import { type Account, auth, clearCookie, normalEmail, readCookie, setCookie, validEmail } from './auth.ts'
+import { apply, CUT_SCHEMA, CUT_SYSTEM, cutPrompt, emptyWall, fromCut, GREETING, live, settle, STEP_NAMES, summary, SYSTEM, toReport, TOOLS, trash, untrash, type Cut, type Wall } from './coach.ts'
+import { codeEmail, due, type Email, facilitatorEmail, type MailLog, parseTemplate, seriesEmail, SERIES, type Template } from './mail.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const DATA = process.env.DATA_DIR ?? join(here, 'data')
@@ -32,11 +33,15 @@ const SMTP_PORT = Number(process.env.SMTP_PORT ?? 25)
 const FACILITATOR = process.env.FACILITATOR ?? 'Delaney'
 const FACILITATOR_EMAIL = process.env.FACILITATOR_EMAIL ?? 'db@zero2one.ee'
 const MAIL_FROM = process.env.MAIL_FROM ?? `${FACILITATOR} <${FACILITATOR_EMAIL}>`
-const PUBLIC_URL = (process.env.PUBLIC_URL ?? 'https://roadmap.hetzner.zero2one.ee').replace(/\/$/, '')
+const PUBLIC_URL = (process.env.PUBLIC_URL ?? 'https://roadmap.zero2one.ee').replace(/\/$/, '')
+// login codes come from an address nobody answers
+const CODE_FROM = process.env.CODE_FROM ?? 'Roadmap First <noreply@zero2one.ee>'
+const SECURE = PUBLIC_URL.startsWith('https:')
 const BOOKING_LINK = process.env.BOOKING_LINK ?? ''
 
 for (const d of ['sessions', 'intakes', 'plans', 'usage', 'mail']) mkdirSync(join(DATA, d), { recursive: true })
 const client = new Anthropic()
+const accounts = auth(DATA)
 const page = readFileSync(join(here, 'public', 'index.html'), 'utf8')
 // The kiosk kit (~/Code/kiosk-pattern), vendored beside the page
 const assets: Record<string, [string, Buffer]> = {
@@ -60,6 +65,12 @@ type Session = {
   /** What the founder saw, for resuming the page and for the facilitator. */
   chat: { role: 'coach' | 'founder'; text: string }[]
   contact?: { name: string; email: string; consent: boolean; at: string }
+  /** The founder's account, once they have proven their email; the conversation then answers only to its login. */
+  account?: string
+  /** Set aside by the founder: kept, and listed in their trash. */
+  trashed?: string
+  /** What the founder changed on the wall themselves, for the coach to hear on the next turn. */
+  notes?: string[]
 }
 
 const sessionPath = (id: string) => join(DATA, 'sessions', `${id}.json`)
@@ -89,9 +100,16 @@ function allowNew(browser: unknown, ip: string) {
 }
 const busy = new Set<string>()
 
+/** Who this request is logged in as, if anyone. */
+const whoIs = (req: IncomingMessage): Account | null => accounts.whoIs(readCookie(req.headers.cookie))
+/** A conversation with an account answers only to that account; one without answers to whoever has its id. */
+const owns = (s: Session | null, who: Account | null): s is Session => !!s && (!s.account || s.account === who?.id)
+const mine = (who: Account) => readdirSync(join(DATA, 'sessions')).map(f => load(f.slice(0, -5))).filter((s): s is Session => s?.account === who.id)
+const me = (who: Account | null) => who ? { email: who.email, name: who.name } : null
+
 function view(s: Session) {
   return {
-    id: s.id, step: s.wall.step, steps: STEP_NAMES, wall: s.wall, chat: s.chat, done: s.wall.step === 5,
+    id: s.id, step: s.wall.step, steps: STEP_NAMES, wall: s.wall, chat: s.chat, done: s.wall.step === 5, trashed: s.trashed ?? null,
     contacted: !!s.contact, consent: !!s.contact?.consent, plan: s.contact ? readPlan(s.id) : null,
   }
 }
@@ -99,6 +117,13 @@ function view(s: Session) {
 /* ---------- the flight plan the founder sees at the end ---------- */
 const planPath = (id: string) => join(DATA, 'plans', `${id}.json`)
 const readPlan = (id: string): Report | null => existsSync(planPath(id)) ? JSON.parse(readFileSync(planPath(id), 'utf8')).report : null
+const planIsFresh = (id: string) => existsSync(planPath(id)) && !JSON.parse(readFileSync(planPath(id), 'utf8')).stale
+/** The founder changed a wall the plan was cut from: it is cut again, and served as it was until then. */
+function stalePlan(id: string) {
+  if (!existsSync(planPath(id))) return
+  const p = JSON.parse(readFileSync(planPath(id), 'utf8'))
+  writeFileSync(planPath(id), JSON.stringify({ ...p, stale: true }))
+}
 
 /** What the facilitator's report run starts from: the wall, and the flight plan the founder saw when there is one. */
 function writeIntake(id: string) {
@@ -107,14 +132,14 @@ function writeIntake(id: string) {
   const { name, email, consent } = s.contact
   const plan = readPlan(id)
   writeFileSync(join(DATA, 'intakes', `${id}.json`), JSON.stringify({
-    consent, report: toReport(s.wall, { name, email }), unknowns: s.wall.unknowns,
+    consent, report: toReport(s.wall, { name, email }), unknowns: live(s.wall).unknowns,
     ...(plan ? { plan: { ...plan, founder: { name, email } } } : {}),
   }, null, 2))
 }
 
 /** Cut stories and releases from a finished wall, checked against the release rules; one retry with the broken rules. */
 async function cutPlan(s: Session): Promise<Report | null> {
-  if (existsSync(planPath(s.id))) return readPlan(s.id)
+  if (planIsFresh(s.id)) return readPlan(s.id)
   if (spent() >= DAILY_USD) return null
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: cutPrompt(s.wall) }]
   let usd = 0
@@ -134,6 +159,8 @@ async function cutPlan(s: Session): Promise<Report | null> {
     const text = msg.content.flatMap(b => b.type === 'text' ? [b.text] : []).join('')
     const { report, errors } = fromCut(s.wall, JSON.parse(text) as Cut, { name: '', email: '' })
     if (!errors.length) {
+      // the plan it replaces is kept beside it
+      if (existsSync(planPath(s.id))) writeFileSync(planPath(s.id).replace(/\.json$/, `.${Date.now()}.json`), readFileSync(planPath(s.id)))
       writeFileSync(planPath(s.id), JSON.stringify({ usd, at: new Date().toISOString(), report }))
       writeIntake(s.id)
       return report
@@ -216,14 +243,16 @@ async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
   return raw ? JSON.parse(raw) : {}
 }
 
-function json(res: ServerResponse, status: number, data: unknown) {
-  res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+function json(res: ServerResponse, status: number, data: unknown, headers: Record<string, string> = {}) {
+  res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers })
   res.end(JSON.stringify(data))
 }
 
 /** One founder turn: stream the coach's words, apply its tool calls, loop until it asks its question. */
 async function turn(s: Session, text: string, send: (event: object) => void) {
-  s.messages.push({ role: 'user', content: text })
+  // what the founder changed on the wall themselves comes first, so the coach isn't surprised by it
+  const notes = s.notes?.length ? `(Since your last question, the founder changed the wall themselves: ${s.notes.join(' ')} The wall now:\n${summary(s.wall)})` : ''
+  s.messages.push({ role: 'user', content: notes ? [{ type: 'text', text: notes }, { type: 'text', text }] : text })
   s.chat.push({ role: 'founder', text })
   let said = ''
   for (let round = 0; round < 8; round++) {
@@ -299,30 +328,107 @@ const server = createServer(async (req, res) => {
       const generated = new Date(s.contact.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-frame-options': 'SAMEORIGIN', 'referrer-policy': 'no-referrer' })
       return res.end(renderRoadmap(roadmapTemplate, { ...plan, founder: { name: s.contact.name } },
-        { unknowns: s.wall.unknowns, chat: s.chat, generated }, '<script src="/roadmap-vendor.js"></script>'))
+        { unknowns: live(s.wall).unknowns, chat: s.chat, generated }, '<script src="/roadmap-vendor.js"></script>'))
     }
 
     if (req.method === 'POST' && url.pathname === '/api/session') {
-      const { id, browser } = await body(req)
-      const existing = validId(id) ? load(id) : null
-      if (existing) return json(res, 200, view(existing))
+      const { id, browser, fresh } = await body(req)
+      const who = whoIs(req)
+      let existing = validId(id) ? load(id) : null
+      if (!owns(existing, who) || existing.trashed) existing = null
+      // logged in on a browser with nothing open: their latest conversation
+      if (!existing && who && fresh !== true) existing = mine(who).filter(s => !s.trashed).sort((a, b) => b.updated.localeCompare(a.updated))[0] ?? null
+      if (existing) {
+        // a conversation this browser started before logging in is theirs
+        if (who && !existing.account) { existing.account = who.id; save(existing) }
+        return json(res, 200, { ...view(existing), me: me(who) })
+      }
       if (!allowNew(browser, ip)) return json(res, 429, { error: 'Too many new conversations from here. Try again in an hour.' })
       const now = new Date().toISOString()
       const s: Session = {
         id: randomBytes(16).toString('base64url'), created: now, updated: now, turns: 0, usd: 0,
-        wall: emptyWall(), messages: [], chat: [{ role: 'coach', text: GREETING }],
+        wall: emptyWall(), messages: [], chat: [{ role: 'coach', text: GREETING }], ...(who ? { account: who.id } : {}),
       }
       save(s)
+      return json(res, 200, { ...view(s), me: me(who) })
+    }
+
+    // /login, and the code step at the end: a code to the email, then the code back
+    if (req.method === 'POST' && url.pathname === '/api/login/start') {
+      const email = normalEmail((await body(req)).email)
+      const r = accounts.start(email, ip)
+      if (!r.ok) return json(res, 400, { error: r.error })
+      if (transport) await transport.sendMail({ from: CODE_FROM, to: email, ...codeEmail(email, r.code) })
+      else console.log(`login code for ${email}: ${r.code}`) // no relay: running locally
+      return json(res, 200, { ok: true })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/login/verify') {
+      const { email: e, code, id, name } = await body(req)
+      const email = normalEmail(e)
+      const r = accounts.verify(email, code)
+      if (!r.ok) return json(res, 400, { error: r.error })
+      const who = accounts.account(email, String(name ?? '').trim())
+      // proving the email claims this browser's conversation, and any left with that email before
+      const here = validId(id) ? load(id) : null
+      for (const s of [here, ...readdirSync(join(DATA, 'sessions')).map(f => load(f.slice(0, -5)))]) {
+        if (s && !s.account && (s.id === here?.id || normalEmail(s.contact?.email) === email)) { s.account = who.id; save(s) }
+      }
+      return json(res, 200, { me: me(who) }, { 'set-cookie': setCookie(accounts.login(who.id), SECURE) })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/logout') {
+      accounts.logout(readCookie(req.headers.cookie))
+      return json(res, 200, { ok: true }, { 'set-cookie': clearCookie(SECURE) })
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/conversations') {
+      const who = whoIs(req)
+      if (!who) return json(res, 401, { error: 'Log in to see your conversations: type /login.' })
+      return json(res, 200, {
+        me: me(who),
+        conversations: mine(who).sort((a, b) => b.updated.localeCompare(a.updated)).map(s => ({
+          id: s.id, product: s.wall.product?.name ?? '', step: s.wall.step, stepName: STEP_NAMES[s.wall.step],
+          updated: s.updated, created: s.created, done: !!s.contact, trashed: s.trashed ?? null,
+        })),
+      })
+    }
+
+    // trash or bring back a whole conversation: it is never deleted
+    if (req.method === 'POST' && url.pathname === '/api/conversation') {
+      const { id, trashed } = await body(req)
+      const who = whoIs(req), s = validId(id) ? load(id) : null
+      if (!who || !s || s.account !== who.id) return json(res, 404, { error: 'That conversation isn’t one of yours.' })
+      if (trashed === true) s.trashed ??= new Date().toISOString()
+      else delete s.trashed
+      save(s)
+      return json(res, 200, { ok: true, trashed: s.trashed ?? null })
+    }
+
+    // the founder trashing or bringing back an item on their wall; the coach hears about it next turn
+    if (req.method === 'POST' && url.pathname === '/api/wall') {
+      const { id, item, trashed } = await body(req)
+      const s = validId(id) ? load(id) : null
+      if (!owns(s, whoIs(req))) return json(res, 404, { error: 'That conversation has gone.' })
+      if (busy.has(s.id)) return json(res, 409, { error: 'Still thinking about your last answer.' })
+      const r = trashed === true ? trash(s.wall, String(item ?? '')) : untrash(s.wall, String(item ?? ''))
+      if (!r.ok) return json(res, 400, { error: r.error })
+      settle(s.wall)
+      ;(s.notes ??= []).push(r.note.replace(/; the founder can bring (it|them) back\.$/, '.'))
+      stalePlan(s.id)
+      save(s)
+      if (s.contact) { writeIntake(s.id); if (s.wall.step === 5) void planFor(s) }
       return json(res, 200, view(s))
     }
 
     if (req.method === 'POST' && url.pathname === '/api/turn') {
       const { id, text } = await body(req)
       const s = validId(id) ? load(id) : null
-      if (!s) return json(res, 404, { error: 'That conversation has gone. Reload to start again.' })
+      if (!owns(s, whoIs(req))) return json(res, 404, { error: 'That conversation has gone. Reload to start again.' })
+      if (s.trashed) return json(res, 400, { error: 'This conversation is in your trash. Bring it back from /trash to carry on.' })
       const said = String(text ?? '').trim().slice(0, MAX_CHARS)
       if (!said) return json(res, 400, { error: 'Say something first.' })
-      if (s.wall.step === 5) return json(res, 400, { error: 'You’re done: leave your name and email for your report.', code: 'contact' })
+      if (s.wall.step === 5) return json(res, 400, s.contact ? { error: 'You’re done with this one: type /roadmap to see it, or /new to start another.' } : { error: 'You’re done: leave your name and email for your report.', code: 'contact' })
       if (s.turns >= MAX_TURNS) return json(res, 429, { error: 'That’s as long as one conversation can go. Leave your name and email and we’ll pick it up from your report.', code: 'contact' })
       if (spent() >= DAILY_USD) return json(res, 503, { error: 'The coach is resting for today: it’s free while our tokens last. Come back tomorrow; your conversation is saved.' })
       if (busy.has(s.id)) return json(res, 409, { error: 'Still thinking about your last answer.' })
@@ -332,6 +438,7 @@ const server = createServer(async (req, res) => {
       try {
         s.turns++
         await turn(s, said, send)
+        delete s.notes
         send({ type: 'end', ...view(s) })
         // the turn may have moved the wall on to the end
         if ((s.wall.step as number) === 5) void planFor(s)
@@ -350,19 +457,22 @@ const server = createServer(async (req, res) => {
       return
     }
 
+    // the end: the email is the account's, proven by its code; only the name and the consent are asked
     if (req.method === 'POST' && url.pathname === '/api/contact') {
-      const { id, name, email, consent } = await body(req)
-      const s = validId(id) ? load(id) : null
-      if (!s) return json(res, 404, { error: 'That conversation has gone.' })
-      const n = String(name ?? '').trim().slice(0, 120), e = String(email ?? '').trim().slice(0, 200)
-      if (!n || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return json(res, 400, { error: 'Add your name and an email we can send your report to.' })
-      s.contact = { name: n, email: e, consent: consent === true, at: new Date().toISOString() }
+      const { id, name, consent } = await body(req)
+      const who = whoIs(req), s = validId(id) ? load(id) : null
+      if (!who) return json(res, 401, { error: 'Your email needs its code first.', code: 'login' })
+      if (!s || s.account !== who.id) return json(res, 404, { error: 'That conversation has gone.' })
+      const n = String(name ?? '').trim().slice(0, 120) || who.name || s.contact?.name || ''
+      if (!n) return json(res, 400, { error: 'Add your name, for the report.' })
+      accounts.account(who.email, n)
+      s.contact = { name: n, email: who.email, consent: consent === true, at: s.contact?.at ?? new Date().toISOString() }
       save(s)
       writeIntake(s.id)
       // The thinking holds while the flight plan is cut, if it isn't ready yet; past two minutes it shows up on their next visit.
       if (s.wall.step === 5) await Promise.race([planFor(s), new Promise(r => setTimeout(r, 120_000))])
       void sendMail()
-      return json(res, 200, view(s))
+      return json(res, 200, { ...view(s), me: me(accounts.byId(who.id)) })
     }
 
     // The link at the foot of every email: no more of the series.
@@ -406,7 +516,7 @@ function admin(url: URL, res: ServerResponse) {
   const k = encodeURIComponent(url.searchParams.get('key')!)
   const rows = readdirSync(join(DATA, 'sessions')).map(f => load(f.slice(0, -5))!).filter(Boolean)
     .sort((a, b) => b.updated.localeCompare(a.updated))
-    .map(s => `<tr><td>${esc(s.updated.slice(0, 16).replace('T', ' '))}</td><td>${esc(s.contact?.name ?? '—')}<br><small>${esc(s.contact?.email ?? '')}${s.contact?.consent ? ' ✓ consent' : ''}${mailNote(s.id)}</small></td>
+    .map(s => `<tr><td>${esc(s.updated.slice(0, 16).replace('T', ' '))}</td><td>${esc(s.contact?.name ?? '—')}<br><small>${esc(s.contact?.email ?? (s.account ? accounts.byId(s.account)?.email ?? '' : ''))}${s.account ? ' · account' : ''}${s.trashed ? ' · trashed' : ''}${s.contact?.consent ? ' ✓ consent' : ''}${mailNote(s.id)}</small></td>
       <td>${esc(s.wall.product?.name ?? '—')}</td><td>${s.wall.step} ${STEP_NAMES[s.wall.step]}</td><td>${s.turns}</td><td>$${s.usd.toFixed(2)}</td>
       <td><a href="/admin/session/${s.id}.json?key=${k}">transcript</a>${s.contact ? ` · <a href="/admin/intake/${s.id}.json?key=${k}">intake</a>` : ''}${existsSync(planPath(s.id)) ? ` · <a href="/admin/plan/${s.id}.json?key=${k}">flight plan</a>` : ''}</td></tr>`).join('')
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })

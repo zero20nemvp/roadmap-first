@@ -232,7 +232,7 @@ Use only what the founder said. Never add a feature, job or problem of your own.
 /** What the model is given to cut: the wall, and the month Ground Zero can start. */
 export function cutPrompt(w: Wall, today = new Date()): string {
   const from = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 1)).toISOString().slice(0, 7)
-  return `Ground Zero can start in ${from}.\n\nThe founder's wall:\n${summary(w)}`
+  return `Ground Zero can start in ${from}.\n\nThe founder's wall:\n${summary(live(w))}`
 }
 
 /** The model's cut as a full report, with the release rules checked. Ground Zero is Next, the rest Planned. */
