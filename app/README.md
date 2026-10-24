@@ -4,7 +4,8 @@ A web app that runs the first four steps of the v2 workshop (problems → workar
 
 - `coach.ts`: the method (system prompt), the tools Claude records the wall with, and the gates between steps. Pure; `npm test` runs `coach.spec.ts`.
 - `server.ts`: one Node process, no framework. It streams each reply, applies tool calls, stores each conversation as JSON, and enforces the limits.
-- `public/index.html`: the Gist kiosk's face (`~/Code/macmail/kiosk`): one full screen, one exchange at a time. The founder sees only the prompt; Enter plays the send (streaks gather into a message that becomes a ball), three balls bounce while the coach thinks, and the reply lands with a flash, its lines condensing in one by one. A quiet status line says the step and what has been noted; `/wall` lists it; ↑ walks back through earlier exchanges. At the end it asks name, email and consent, one screen each.
+- `public/kiosk.js`, `public/kiosk.css`: the kiosk kit, vendored from `~/Code/kiosk-pattern` (see its PATTERN.md); copy them again when the kit changes. `server.ts` serves them beside the page.
+- `public/index.html`: only what the coach says and means, on the kit; the kit gives it the Gist kiosk's face (`~/Code/macmail/kiosk`): one full screen, one exchange at a time. The founder sees only the prompt; Enter plays the send (streaks gather into a message that becomes a ball), three balls bounce while the coach thinks, and the reply lands with a flash, its lines condensing in one by one. A quiet status line says the step and what has been noted; `/wall` lists it; ↑ walks back through earlier exchanges. At the end it asks name, email and consent, one screen each.
 
 ## Limits (it's free, so it's capped)
 

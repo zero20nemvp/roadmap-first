@@ -8,224 +8,29 @@
 <title>Roadmap-first coach</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300&family=JetBrains+Mono:wght@400&display=swap">
-<style>
-/* The Gist kiosk's face (~/Code/macmail/kiosk): one full screen, one exchange at a time.
-   Sizes are in design units (--u): one point on a 1440x900 screen, scaled to fit. */
-:root{
-  --ground:#0A151E; --deep:#060D13; --text:#E6EEF3; --dim:#8CA3B2; --faint:#6E8798;
-  --mine:#3FC2F0; --live:#4FD08A; --warn:#E0B057; --bad:#F0736F; --rule:#243B4A; --vignette:#03080C;
-  --sans:"IBM Plex Sans", -apple-system, "SF Pro Display", system-ui, sans-serif;
-  --mono:"JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
-  --u:1px; --frame:1180px; --col:900px;
-  --move:cubic-bezier(.25,1,.35,1);      /* Motion.Focus.move: spring 0.55 / 0.85 */
-  --recede:cubic-bezier(.3,1.08,.5,1);   /* Motion.Focus.recede: spring 0.66 / 0.80 */
-  --fluid:cubic-bezier(.34,1.18,.6,1);   /* Motion.fluid: spring 0.58 / 0.74 */
-  --going:cubic-bezier(.4,0,.2,1);       /* Motion.going */
-  color-scheme:dark;
-}
-*{box-sizing:border-box}
-html,body{height:100%;margin:0;overflow:hidden}
-body{background:linear-gradient(var(--ground),var(--deep));color:var(--text);font-family:var(--sans);font-weight:300;-webkit-font-smoothing:antialiased;cursor:text}
-
-/* Ground.swift: the layers behind everything */
-.ground{position:fixed;inset:0;pointer-events:none;overflow:hidden}
-.ground i{position:absolute;inset:0;display:block}
-.breathe{background:radial-gradient(circle calc(660*var(--u)) at 50% 50%,var(--mine),transparent);opacity:.085;transition:opacity 1.6s ease-in-out}
-body.typing .breathe{opacity:.13;transition:opacity .45s ease-out}
-.cool{background:radial-gradient(circle calc(700*var(--u)) at 10% -10%,rgba(63,194,240,.05),transparent)}
-.warm{background:radial-gradient(circle calc(620*var(--u)) at 95% 104%,rgba(79,208,138,.032),transparent)}
-.drift{transition:opacity .8s ease-in-out}
-body.idle .drift{opacity:0}
-.drift b,.drift b::after{position:absolute;inset:-10%;display:block}
-.drift b{animation:drift-y 53s ease-in-out infinite alternate}
-.drift b::after{content:"";inset:0;background:radial-gradient(circle calc(540*var(--u)) at 26% 68%,rgba(63,194,240,.055),rgba(63,194,240,.038) 35%,rgba(63,194,240,.012) 70%,transparent);animation:drift-x 38s ease-in-out infinite alternate}
-@keyframes drift-x{from{transform:translateX(calc(-30*var(--u))) scale(1.02)}to{transform:translateX(calc(34*var(--u))) scale(1.08)}}
-@keyframes drift-y{from{transform:translateY(calc(18*var(--u)))}to{transform:translateY(calc(-22*var(--u)))}}
-.vignette{background:radial-gradient(circle at 50% 50%,transparent calc(320*var(--u)),rgba(3,8,12,.66) calc(980*var(--u)))}
-
-canvas#field{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
-
-/* The plane: one column, moved so the cursor or the reply sits at the centre */
-.stage{position:fixed;inset:0;-webkit-mask-image:linear-gradient(transparent,#000 calc(140*var(--u)));mask-image:linear-gradient(transparent,#000 calc(140*var(--u)))}
-.plane{position:absolute;left:50%;top:0;width:var(--frame);transform:translate(-50%,0);transition:transform .55s var(--move),opacity .3s ease-out,filter .3s ease-out}
-body[data-phase="release"] .plane{opacity:0;filter:blur(calc(14*var(--u)));transition:transform .55s var(--move),opacity .36s ease-in,filter .36s ease-in}
-body[data-phase="vortex"] .plane{opacity:0;transition:none}
-
-.block{transform-origin:left bottom;transition:transform .66s var(--recede),opacity .66s var(--recede)}
-.block[hidden]{display:none}
-body.over .block{transform:scale(.88);opacity:.52}
-.block.leaving{opacity:0;transform:translateY(calc(-24*var(--u)));transition:opacity .18s ease-in,transform .18s ease-in}
-
-.echo{font:400 calc(13*var(--u))/calc(22*var(--u)) var(--mono);letter-spacing:calc(.6*var(--u));color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:var(--col);margin-bottom:calc(18*var(--u))}
-.echo:empty{display:none}
-.rows{max-width:var(--col)}
-.status{display:inline-block;margin-top:calc(26*var(--u));font:400 calc(12*var(--u))/1.4 var(--mono);letter-spacing:calc(1.6*var(--u));color:var(--faint);background:none;border:0;padding:0;text-align:left;cursor:default}
-.status.act{cursor:pointer}
-.status.act:hover,.status.act:focus-visible{color:var(--dim);outline:none}
-.status:empty{display:none}
-
-/* Condense (KioskView.swift:260-282): each row waits as a soft band, then comes out of it */
-.row{position:relative;white-space:pre;font-size:calc(var(--fs)*var(--u));line-height:calc(var(--lh)*var(--u));height:calc(var(--lh)*var(--u));letter-spacing:calc(-.3*var(--u))}
-.row.gap{height:calc(var(--lh)*.55*var(--u))}
-.row>span{display:inline-block;opacity:0;filter:blur(calc(11*var(--u)));transform:translateY(calc(20*var(--u))) scale(.97);transform-origin:left center;color:var(--mine);transition:opacity .6s var(--fluid),filter .6s var(--fluid),transform .6s var(--fluid),color .6s ease-out}
-.row::before,.item::before{content:"";position:absolute;left:0;top:50%;height:max(calc(7*var(--u)),calc(var(--fs)*.36*var(--u)));width:calc(var(--w)*var(--u));transform:translateY(-50%);border-radius:999px;background:rgba(63,194,240,.2);filter:blur(calc(7*var(--u)));transition:opacity .3s ease-out}
-.row.gap::before{display:none}
-.row.in>span{opacity:1;filter:blur(0);transform:none;color:var(--text)}
-.row.in::before,.item.in::before{opacity:0}
-
-/* The wall, as Gist's gist list: five to a screen */
-.item{position:relative;height:calc(120*var(--u));--fs:22;--w:944}
-.item::before{height:calc(9*var(--u));top:calc(17*var(--u))}
-.item>div{opacity:0;filter:blur(calc(11*var(--u)));transform:translateY(calc(20*var(--u))) scale(.97);transform-origin:left center;transition:opacity .6s var(--fluid),filter .6s var(--fluid),transform .6s var(--fluid)}
-.item.in>div{opacity:1;filter:blur(0);transform:none}
-.item .who{display:flex;gap:calc(16*var(--u));font-size:calc(22*var(--u));line-height:calc(34*var(--u));height:calc(34*var(--u));color:var(--text);white-space:nowrap}
-.item .who span:first-child{overflow:hidden;text-overflow:ellipsis;flex:1}
-.item .stamp{font:400 calc(14*var(--u))/calc(34*var(--u)) var(--mono);color:var(--faint);width:calc(130*var(--u));text-align:right;flex:none}
-.item .what{font-size:calc(20*var(--u));line-height:calc(30*var(--u));color:var(--dim);max-width:calc(1060*var(--u));display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.item .dot{position:absolute;left:calc(-20*var(--u));top:calc(13.5*var(--u));width:calc(7*var(--u));height:calc(7*var(--u));border-radius:50%;background:var(--c)}
-.item.lit::after{content:"";position:absolute;inset:calc(-10*var(--u)) calc(-34*var(--u)) calc(16*var(--u));border-radius:calc(12*var(--u));background:rgba(63,194,240,.12);z-index:-1;transition:opacity .12s ease-out}
-
-/* The prompt (PromptEditor.swift): your words, large, in the cursor's colour */
-.prompt{position:relative}
-.block:not([hidden])+.prompt{margin-top:calc(52*var(--u))}
-textarea{display:block;width:100%;margin:0;padding:0;border:0;outline:0;resize:none;overflow:hidden;background:transparent;color:var(--mine);caret-color:var(--mine);font-family:var(--sans);font-weight:300;font-size:calc(54*var(--u));line-height:calc(71*var(--u));height:calc(71*var(--u))}
-body[data-phase="release"] .prompt,body[data-phase="vortex"] .prompt,body[data-phase="landing"] .prompt{visibility:hidden}
-
-.commands{position:absolute;left:0;top:calc(100% + 18*var(--u));width:min(calc(430*var(--u)),100%);padding:calc(8*var(--u)) 0;border-radius:calc(14*var(--u));background:var(--deep);border:1px solid var(--rule);box-shadow:0 calc(14*var(--u)) calc(30*var(--u)) rgba(0,0,0,.55);transition:opacity .3s var(--fluid),transform .3s var(--fluid)}
-.commands[hidden]{display:block;opacity:0;transform:translateY(calc(-10*var(--u)));pointer-events:none}
-.commands div{display:flex;gap:calc(20*var(--u));align-items:center;height:calc(38*var(--u));padding:0 calc(18*var(--u));background:rgba(63,194,240,.10);cursor:pointer}
-.commands b{font:400 calc(15*var(--u)) var(--mono);color:var(--mine);width:calc(96*var(--u))}
-.commands span{font-size:calc(15*var(--u));color:var(--dim)}
-
-.note{margin-top:calc(26*var(--u));min-height:calc(20*var(--u))}
-.note .invite{font-size:calc(22*var(--u));line-height:calc(34*var(--u));color:var(--faint)}
-.note .hint{font:400 calc(12*var(--u))/1.6 var(--mono);letter-spacing:calc(1.6*var(--u));color:var(--faint);opacity:.75;margin-top:calc(8*var(--u))}
-.note .err{font:400 calc(13*var(--u))/1.5 var(--mono);color:var(--warn)}
-.note .said{font:400 calc(13*var(--u))/1.5 var(--mono);color:var(--dim)}
-.note>*{animation:fade .3s ease-out}
-@keyframes fade{from{opacity:0}}
-
-@media (prefers-reduced-motion:reduce){
-  .plane,.block,.row>span,.item>div,.commands{transition-duration:.15s!important}
-  .drift b,.drift b::after{animation:none}
-}
-</style>
+<link rel="stylesheet" href="/kiosk.css">
+<style>html,body{height:100%;margin:0;overflow:hidden;background:#0A151E}</style>
 </head>
-<body data-phase="rest" class="idle">
-<div class="ground" aria-hidden="true"><i class="breathe"></i><i class="cool"></i><i class="warm"></i><i class="drift"><b></b></i><i class="vignette"></i></div>
-<canvas id="field" aria-hidden="true"></canvas>
-<main class="stage">
-  <div class="plane" id="plane">
-    <section class="block" id="block" hidden aria-live="polite">
-      <div class="echo" id="echo"></div>
-      <div class="rows" id="rows"></div>
-      <button class="status" id="status" type="button" tabindex="-1"></button>
-    </section>
-    <div class="prompt">
-      <textarea id="ta" rows="1" maxlength="2000" spellcheck="true" autocomplete="off" enterkeyhint="send" aria-label="Your answer"></textarea>
-      <div class="commands" id="commands" hidden><div id="cmd"><b>/wall</b><span>what you’ve said so far, step by step</span></div></div>
-    </div>
-    <div class="note" id="note"></div>
-  </div>
-</main>
-<script>
-'use strict'
-const $ = id => document.getElementById(id)
-const body = document.body, ta = $('ta'), plane = $('plane'), block = $('block'), rowsEl = $('rows'), note = $('note')
-const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches
+<body>
+<script type="module">
+// The coach on the kiosk kit (kiosk.js, from ~/Code/kiosk-pattern): this file is only what the coach says and means.
+import { mount } from '/kiosk.js'
 
-// Motion (Theme.swift): the send is 0.98s, the balls hold at least 2.153s, the flash 0.26s before the rows
-const SEND = REDUCED ? .15 : .98, MIN_VORTEX = REDUCED ? .6 : 2.153, FLASH_HOLD = .26, CASCADE = .9, TURN = .32, LINE_IN = .6
-const SAID = 28, NAME_LINE = 34
-const lh = d => Math.round(d * (1.62 - 0.0055 * d))   // Typeset.swift:58
-const now = () => performance.now() / 1000
-const sleep = s => new Promise(r => setTimeout(r, s * 1000))
-const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x))
+let state = null   // the server's view: id, step, steps, wall, chat, done, contacted
+let contact = null // the end: { stage: 'name' | 'email' | 'consent', name, email }
 
-let U = 1, W = 0, H = 0, FRAME = 1180, COL = 900
-let state = null                     // the server's view: id, step, steps, wall, chat, done, contacted
-let screen = null                    // what the block shows: { kind, echo, text | items, status, act }
-let view = 'live', hist = 0, lit = 0 // live | hist | wall
-let busy = false, contact = null
-let firstVisit = false
-
-/* ---------- scale ---------- */
-function measure() {
-  const vv = window.visualViewport
-  W = innerWidth; H = vv ? vv.height : innerHeight
-  U = clamp(Math.min(W / 1440, H / 900), .8, 2)
-  FRAME = Math.min(1180 * U, W - 32)
-  COL = Math.min(900 * U, FRAME)
-  const r = document.documentElement.style
-  r.setProperty('--u', U + 'px'); r.setProperty('--frame', FRAME + 'px'); r.setProperty('--col', COL + 'px')
-  field.size()
+async function post(path, data) {
+  const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) })
+  const v = await r.json().catch(() => ({ error: 'Something went wrong. Try again.' }))
+  if (!r.ok) throw Object.assign(new Error(v.error), { code: v.code })
+  return v
 }
 
-/* ---------- text ---------- */
-const meter = document.createElement('canvas').getContext('2d')
-const sansFont = d => `300 ${d * U}px "IBM Plex Sans", -apple-system, "SF Pro Display", system-ui, sans-serif`
-const clean = t => t.replace(/\*\*(.+?)\*\*/g, '$1').replace(/__(.+?)__/g, '$1').replace(/^#+\s*/gm, '').replace(/^\s*[-*]\s+/gm, '• ')
-
-/** Lines as the reply will be set: greedy wrap to the column, a short gap between paragraphs. */
-function wrap(text, d, max) {
-  meter.font = sansFont(d)
-  const out = [], w = s => meter.measureText(s).width / U
-  clean(text).trim().split(/\n\s*\n/).forEach((para, i) => {
-    if (i) out.push({ gap: true })
-    for (const ln of para.split('\n')) {
-      let cur = ''
-      for (const word of ln.split(/\s+/).filter(Boolean)) {
-        const t = cur ? cur + ' ' + word : word
-        if (!cur || meter.measureText(t).width <= max) cur = t
-        else { out.push({ t: cur, w: w(cur) }); cur = word }
-      }
-      if (cur) out.push({ t: cur, w: w(cur) })
-    }
-  })
-  return out
-}
-
-/* ---------- the block's rows, revealed one at a time ---------- */
-const rows = {
-  items: [], shown: 0, settled: 0, gap: .14, nextAt: 0, live: false, timers: [],
-  reset() { this.timers.forEach(clearTimeout); this.timers = []; this.items = []; this.shown = 0; this.settled = 0; this.nextAt = 0; this.live = false; rowsEl.textContent = '' },
-  /** Set the reply's text; while it streams, the last line is still growing and waits as a band. */
-  set(text, final) {
-    const lines = wrap(text, SAID, COL)
-    lines.forEach((ln, i) => {
-      let r = this.items[i]
-      if (!r) { r = document.createElement('div'); r.className = 'row'; r.append(document.createElement('span')); rowsEl.append(r); this.items.push(r) }
-      r.classList.toggle('gap', !!ln.gap)
-      r.style.setProperty('--fs', SAID); r.style.setProperty('--lh', lh(SAID))
-      r.style.setProperty('--w', clamp(ln.w || 0, 56, 900))
-      if (r.firstChild.textContent !== (ln.t || '')) r.firstChild.textContent = ln.t || ''
-    })
-    while (this.items.length > lines.length && this.items.length > this.shown) this.items.pop().remove()
-    this.settled = final ? lines.length : Math.max(0, lines.length - 1)
-    if (this.live) this.reveal()
-  },
-  /** Items the block holds already (the wall), all settled. */
-  setItems(els) { els.forEach(e => { rowsEl.append(e); this.items.push(e) }); this.settled = els.length },
-  start(total) { this.live = true; this.gap = Math.min(.14, total / Math.max(1, this.settled - this.shown)); this.nextAt = now(); this.reveal() },
-  reveal() {
-    for (; this.shown < this.settled; this.shown++) {
-      const r = this.items[this.shown], at = Math.max(now(), this.nextAt)
-      this.nextAt = at + this.gap
-      this.timers.push(setTimeout(() => r.classList.add('in'), (at - now()) * 1000))
-    }
-  },
-  all() { this.items.forEach(r => r.classList.add('in')); this.shown = this.settled = this.items.length },
-  idle() { return sleep(Math.max(0, this.nextAt - now())) },
-}
-
-/* ---------- screens ---------- */
 const counts = w => [[w.problems, 'problem'], [w.workarounds, 'workaround'], [w.jobs, 'job'], [w.features, 'feature'], [w.unknowns, 'parked']]
   .filter(([a]) => a.length).map(([a, n]) => `${a.length} ${n === 'parked' ? n : n + (a.length > 1 ? 's' : '')}`).join(' · ')
-
 const hasWall = () => !!(state && (state.wall.product?.name || counts(state.wall)))
 
-function liveStatus() {
+function status() {
   if (!state) return ''
   if (state.contacted) return 'done · thank you'
   if (state.done) return 'the four steps are done · your report is next'
@@ -234,474 +39,112 @@ function liveStatus() {
   return [where, c, hasWall() ? '/wall' : ''].filter(Boolean).join(' · ')
 }
 
-/** Put a screen in the block. how: 'instant' (all in), 'turn' (out, then rows condense in 0.32s), 'bands' (rows wait; the caller reveals). */
-async function show(scr, how = 'turn') {
-  if (how === 'turn' && !block.hidden && screen) {
-    block.classList.add('leaving'); await sleep(.18); block.classList.remove('leaving')
-  }
-  screen = scr
-  rows.reset()
-  block.hidden = false
-  $('echo').textContent = scr.echo ? `you  ·  ${scr.echo.replace(/\s+/g, ' ')}` : ''
-  setStatus(scr.status, scr.act)
-  if (scr.kind === 'wall') rows.setItems(scr.items)
-  else rows.set(scr.text || '', true)
-  if (how === 'instant') rows.all()
-  else if (how === 'turn') rows.start(TURN)
-  place()
-}
-
-function setStatus(text, act) {
-  const s = $('status')
-  s.textContent = text || ''
-  s.classList.toggle('act', !!act)
-  s.onclick = act ? e => { e.stopPropagation(); act() } : null
-}
-
-function hide() { screen = null; rows.reset(); block.hidden = true; place() }
-
-const thanks = () => ({ kind: 'said', echo: '', text: 'Thank you. Your report is with your facilitator, and on its way to you if you asked for it.', status: 'done · thank you' })
-
-function latest() {
-  const c = state.chat, last = c.at(-1)
-  const before = c.at(-2)
-  return { kind: 'said', echo: before?.role === 'founder' ? before.text : '', text: last.text, status: liveStatus(), act: hasWall() ? openWall : null }
-}
-
-/* ---------- placing the plane ---------- */
-function place() {
-  const reading = !block.hidden && !body.classList.contains('over')
-  const prompt = ta.parentElement
-  let y
-  if (reading) y = H / 2 - block.offsetHeight / 2
-  else y = H / 2 - (prompt.offsetTop + prompt.offsetHeight / 2)
-  plane.style.transform = `translate(-50%, ${Math.round(y)}px)`
-}
-
-/* ---------- the prompt ---------- */
-function fitPrompt() {
-  const lines = ta.value.split('\n')
-  meter.font = sansFont(54)
-  const widest = Math.max(1, ...lines.map(l => meter.measureText(l).width))
-  const d = Math.floor(clamp(54 * FRAME / widest, 34, 54))   // PromptType.swift: 54 down to 34, then wrap
-  ta.style.fontSize = d * U + 'px'
-  ta.style.lineHeight = lh(d) * U + 'px'
-  ta.style.height = '0'
-  ta.style.height = ta.scrollHeight + 'px'
-}
-
-function onInput() {
-  const t = ta.value
-  body.classList.toggle('typing', t.length > 0)
-  body.classList.toggle('over', t.length > 0 && !block.hidden)
-  body.classList.remove('idle')
-  if (t.length && !busy) note.querySelector('.invite, .hint') && setNote()
-  if (!t.length && block.hidden && firstVisit) invite()
-  $('commands').hidden = !(t.startsWith('/') && '/wall'.startsWith(t.trim().toLowerCase()))
-  fitPrompt(); place()
-}
-
-function setNote(kind, text) {
-  note.textContent = ''
-  if (!kind) return
-  const el = document.createElement('div'); el.className = kind; el.textContent = text
-  note.append(el)
-}
-
-function invite() {
-  note.textContent = ''
-  const a = document.createElement('div'); a.className = 'invite'; a.textContent = 'What are you building, and who is it for?'
-  const b = document.createElement('div'); b.className = 'hint'; b.textContent = 'roadmap-first coach · one question at a time · the answers are yours'
-  note.append(a, b)
-}
-
-function setPhase(p) {
-  body.dataset.phase = p
-  ta.readOnly = p !== 'rest' && p !== 'answer'
-  if (p === 'rest' || p === 'answer') ta.focus({ preventScroll: true })
-}
-
-/* ---------- the field: send, balls, flash (Field.swift) ---------- */
-const field = (() => {
-  const cv = $('field'), cx = cv.getContext('2d')
-  const blurs = 'filter' in cx
-  let mode = 'idle', t0 = 0, raf = 0, vortex0 = 0, w = 0, h = 0
-  const tint = '63,194,240'
-  // 72 streaks, seeded so every send looks the same
-  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647
-  const streaks = Array.from({ length: 72 }, () => ({ dx: rnd() * 2 - 1, dy: rnd() * 2 - 1, len: 35 + rnd() * 165, th: 2.1 + rnd() * 4.5, a: .18 + rnd() * .54, r: rnd(), d: rnd() * .25 }))
-  const BARS = [[.96, -55], [.64, -23], [.88, 23], [.46, 55]]
-  const easeOut = x => 1 - Math.pow(1 - x, 3)
-  const easeInOut = x => x < .5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2
-  const lerp = (a, b, k) => a + (b - a) * k
-
-  function size() {
-    const dpr = Math.min(2, devicePixelRatio || 1)
-    w = innerWidth; h = innerHeight
-    cv.width = w * dpr; cv.height = h * dpr
-    cx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  }
-  const blur = px => { if (blurs) cx.filter = px ? `blur(${px}px)` : 'none' }
-  const floorY = () => H / 2 + 37.5 * U
-  const ball0 = () => W / 2 - 69 * U
-  const left = () => W / 2 - FRAME / 2
-
-  function bloom(x, y, color, peak, reach, t, s) {
-    const r = .06 * s, f = .18 * s, tl = .40 * s
-    let e = t < 0 ? 0 : t < r ? easeOut(t / r) : t < r + f ? 1 - .62 * ((t - r) / f) : t < r + f + tl ? .38 * Math.pow(1 - (t - r - f) / tl, 1.9) : 0
-    if (e <= 0) return false
-    const rad = lerp(43.5 * U, reach, easeOut(clamp(t / (.11 * s))))
-    const g = cx.createRadialGradient(x, y, 0, x, y, rad)
-    g.addColorStop(0, `rgba(${color},${peak * e})`); g.addColorStop(.35, `rgba(${color},${peak * e * .4})`); g.addColorStop(1, `rgba(${color},0)`)
-    cx.fillStyle = g; cx.fillRect(0, 0, w, h)
-    return true
-  }
-  function pill(x, y, bw, bh, a) {
-    cx.globalAlpha = a; cx.beginPath(); cx.roundRect(x, y - bh / 2, bw, bh, bh / 2); cx.fill(); cx.globalAlpha = 1
-  }
-  function ball(x, y, bw, bh, a = 1) {
-    cx.fillStyle = `rgb(${tint})`
-    blur(16 * U); cx.globalAlpha = .55 * a; cx.beginPath(); cx.ellipse(x, y, bw * .75, bh * .75, 0, 0, Math.PI * 2); cx.fill()
-    blur(0); cx.globalAlpha = .95 * a; cx.beginPath(); cx.ellipse(x, y, bw / 2, bh / 2, 0, 0, Math.PI * 2); cx.fill()
-    cx.globalAlpha = 1
-  }
-
-  function sending(t) {
-    const p = t / SEND, diag = Math.hypot(W, H), my = H / 2, mx = left() + 200 * U
-    bloom(mx, my, tint, .42, .75 * diag, t, .5)
-    // gather: the streaks run in to the message
-    const g = clamp(p / .34)
-    if (g < 1) {
-      cx.fillStyle = `rgb(${tint})`; blur(12 * U)
-      for (const s of streaks) {
-        const k = easeOut(clamp((g - s.d * .5) / (1 - s.d * .5)))
-        const len = s.len * (.5 + s.r) * U * (1 - .72 * k)
-        pill(lerp(mx + s.dx * 590 * U, mx, k) - len / 2, lerp(my + s.dy * 77 * U, my, k), len, s.th * U, s.a * (1 - k))
-      }
-      blur(0)
+/** One founder turn: the reply streams in as NDJSON while the balls bounce. */
+async function ask(text, out) {
+  const r = await fetch('/api/turn', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: state.id, text }) })
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw Object.assign(new Error(e.error || 'Something went wrong. Try again.'), { code: e.code }) }
+  const reader = r.body.getReader(), dec = new TextDecoder()
+  let buf = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buf += dec.decode(value, { stream: true })
+    let nl
+    while ((nl = buf.indexOf('\n')) >= 0) {
+      const e = JSON.parse(buf.slice(0, nl)); buf = buf.slice(nl + 1)
+      if (e.type === 'text') out.write(e.delta)
+      else if (e.type === 'wall' || e.type === 'end') state = e
+      else if (e.type === 'error') throw new Error(e.error)
     }
-    // the message: four bars that seal, then morph into the first ball
-    const shown = Math.min(1, easeOut(g) * 1.4)
-    const seal = p > .34 && p < .44 ? 1 + .05 * Math.sin(Math.PI * (p - .34) / .1) : 1
-    const m = easeInOut(clamp((p - .44) / .42))
-    const tx = ball0(), ty = floorY(), bd = 43.5 * U
-    cx.fillStyle = `rgb(${tint})`
-    for (const layer of [0, 1]) {
-      blur(layer ? 0 : 16 * U)
-      for (const [fw, dy] of BARS) {
-        const bw = lerp(fw * 400 * U * seal, bd, m), bh = lerp(12 * U * seal, bd, m)
-        const x = lerp(left(), tx - bd / 2, m), y = lerp(my + dy * U, ty, m)
-        const grow = layer ? 0 : 10.875 * U * (1 - m)
-        pill(x - grow / 2, y, bw + grow, bh + grow, shown * (layer ? .95 : .55))
-      }
-    }
-    blur(0)
-    if (p >= .86) {
-      const k = clamp((p - .86) / .14)
-      bloom(tx, ty, '255,255,255', .34, .10 * diag, t - .86 * SEND, .5)
-      blur(21 * U); cx.strokeStyle = `rgba(${tint},${Math.pow(1 - k, 1.8) * .48})`; cx.lineWidth = 2.4 * U
-      cx.beginPath(); cx.arc(tx, ty, bd / 2 + 400 * U * k, 0, Math.PI * 2); cx.stroke(); blur(0)
-    }
-    return true
   }
-
-  /** Three balls: split 69 apart, bounce 75 high with a squash at the floor. */
-  function balls(t, fade = 1, drop = 1) {
-    const bd = 43.5 * U, base = ball0(), fy = floorY()
-    const at = [[0, base, base], [.26, base, W / 2], [.45, W / 2, W / 2 + 69 * U]]
-    at.forEach(([born, from, to], i) => {
-      if (t < born) return
-      const k = i ? easeOut(clamp((t - born) / .19)) : 1
-      const sc = i ? lerp(.34, 1, k) : 1
-      const tau = t - (.64 + i * .1364)
-      let hb = 0, sq = 0
-      if (REDUCED) hb = 0
-      else if (tau > 0) { hb = Math.pow(Math.abs(Math.sin(Math.PI * tau / .62)), .62); sq = Math.pow(1 - hb, 4) * clamp(tau / .155) }
-      const bw = bd * sc * (1 + .26 * sq), bh = bd * sc * (1 - .20 * sq)
-      const a = REDUCED ? fade * (.6 + .4 * Math.sin(t * 3 + i)) : fade
-      ball(lerp(from, to, k), fy - hb * 75 * U * drop + (bd - bh) / 2, bw, bh, a)
-    })
-  }
-
-  function frame() {
-    raf = 0
-    cx.clearRect(0, 0, w, h)
-    const t = now() - t0
-    let more = true
-    if (mode === 'send') { sending(Math.min(t, SEND)) }
-    else if (mode === 'think') balls(t)
-    else if (mode === 'land') {
-      const k = easeOut(clamp(t / .16))
-      if (k < 1) balls(t0 - vortex0 + t, 1 - k, 1 - k)
-      more = bloom(W / 2, floorY(), '255,255,255', .96, .75 * Math.hypot(W, H), t, 1) || k < 1
-    }
-    else if (mode === 'fail') more = bloom(W / 2, H / 2, '240,115,111', .42, .75 * Math.hypot(W, H), t, 1)
-    else more = false
-    if (more) raf = requestAnimationFrame(frame)
-    else mode = 'idle'
-  }
-  function go(m) {
-    mode = m; t0 = now()
-    if (m === 'think') vortex0 = t0
-    if (!raf) raf = requestAnimationFrame(frame)
-  }
-  return { size, send: () => go('send'), think: () => go('think'), land: () => go('land'), fail: () => go('fail'), stop: () => go('idle') }
-})()
-
-/* ---------- a send: release, balls, flash, rows ---------- */
-function until(test, register) {
-  return new Promise(res => { const check = () => { if (test()) { register(() => {}); res() } }; register(check); check() })
 }
 
-/** Run one exchange through the full motion. work(out, wake) fills out.text and resolves when done. */
-async function flight(echo, work) {
-  busy = true
-  const prev = screen, words = ta.value
-  const out = { text: '', done: false, error: null, code: null }
-  let wakeFn = () => {}
-  const wake = () => wakeFn()
-  work(out, wake).catch(() => { out.error = out.error || 'Lost the connection. Send that again.' }).finally(() => { out.done = true; wake() })
-
-  setNote()
-  ta.value = ''; body.classList.remove('typing', 'over'); fitPrompt()
-  setPhase('release'); field.send()
-  await sleep(SEND)
-  setPhase('vortex'); field.think(); hide()
-  const v0 = now()
-  await until(() => out.done || (out.text.trim() && !out.error), f => wakeFn = f)
-  await sleep(Math.max(0, MIN_VORTEX - (now() - v0)))
-
-  const fail = async () => {
-    wakeFn = () => {}
-    field.fail()
-    if (prev) await show(prev, 'instant'); else hide()
-    setPhase(prev ? 'answer' : 'rest')
-    ta.value = words; onInput()
-    setNote('err', out.error)
-    busy = false
-    if (out.code === 'contact') beginContact()
-  }
-  if (out.error) return fail()
-
-  setPhase('landing'); field.land()
-  await show({ kind: 'said', echo, text: out.text, status: '' }, 'bands')
-  rows.set(out.text, out.done)
-  await sleep(FLASH_HOLD)
-  rows.start(CASCADE)
-  // the rest of the reply streams in under the eye, a line at a time
-  await until(() => out.done, check => { wakeFn = () => { if (!out.error) { rows.set(out.text, out.done); place() } check() } })
-  if (out.error) return fail()
-  rows.set(out.text, true); rows.gap = .14; rows.reveal(); place()
-  await rows.idle(); await sleep(LINE_IN)
-  screen = { kind: 'said', echo, text: out.text, status: liveStatus(), act: hasWall() ? openWall : null }
-  setStatus(screen.status, screen.act); place()
-  view = 'live'
-  setPhase('answer')
-  busy = false
+function exchanges() {
+  const c = state?.chat || [], out = []
+  c.forEach((m, i) => { if (m.role === 'coach') out.push({ echo: c[i - 1]?.role === 'founder' ? c[i - 1].text : '', text: m.text }) })
   return out
 }
 
-async function post(path, data) {
-  const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) })
-  const v = await r.json().catch(() => ({ error: 'Something went wrong. Try again.' }))
-  if (!r.ok) { const e = new Error(v.error); e.code = v.code; throw e }
-  return v
-}
-
-/** One founder turn: the reply streams in as NDJSON while the balls bounce. */
-async function turn(words) {
-  firstVisit = false
-  const out = await flight(words, async (out, wake) => {
-    const r = await fetch('/api/turn', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: state.id, text: words }) })
-    if (!r.ok) { const e = await r.json().catch(() => ({})); out.error = e.error || 'Something went wrong. Try again.'; out.code = e.code; return }
-    const reader = r.body.getReader(), dec = new TextDecoder()
-    let buf = ''
-    for (;;) {
-      const { value, done } = await reader.read()
-      if (done) break
-      buf += dec.decode(value, { stream: true })
-      let nl
-      while ((nl = buf.indexOf('\n')) >= 0) {
-        const e = JSON.parse(buf.slice(0, nl)); buf = buf.slice(nl + 1)
-        if (e.type === 'text') out.text += e.delta
-        else if (e.type === 'wall' || e.type === 'end') state = e
-        else if (e.type === 'error') out.error = e.error
-        wake()
-      }
-    }
-  })
-  if (out && state.done && !state.contacted) beginContact()
+/* ---------- the wall ---------- */
+function openWall(k) {
+  if (!hasWall()) return k.note('said', 'Nothing on your wall yet: it fills as you answer.')
+  const w = state.wall, items = []
+  const cap = s => s ? s[0].toUpperCase() + s.slice(1) : ''
+  if (w.product?.name) items.push({ title: w.product.name, stamp: 'product', text: [w.product.who && `For ${w.product.who}.`, cap(w.product.pitch)].filter(Boolean).join(' '), dot: 'var(--dim)' })
+  for (const x of w.problems) items.push({ title: `${x.id} · problem`, stamp: 'step 1', text: x.text, dot: 'var(--bad)' })
+  for (const x of w.workarounds) items.push({ title: `${x.id} · workaround for ${x.problem}`, stamp: 'step 2', text: x.text + (x.pays ? ` · pays ${x.pays}` : ''), dot: 'var(--warn)' })
+  for (const x of w.jobs) items.push({ title: `${x.id} · job${x.from ? ' from ' + x.from : ''}`, stamp: 'step 3', text: `When ${x.when}, I want ${x.want}, so ${x.so}.`, dot: 'var(--mine)' })
+  for (const x of w.features) items.push({ title: `${x.id} · feature for ${x.job}`, stamp: 'step 4', text: x.name, dot: 'var(--live)' })
+  for (const x of w.unknowns) items.push({ title: `${x.id} · parked to test`, text: x.text, dot: 'var(--faint)' })
+  k.list(items, { title: 'your wall' })
 }
 
 /* ---------- the end: name, email, consent, one screen each ---------- */
 function beginContact() {
   contact = { stage: 'name' }
-  setNote('said', 'your name, for the report')
+  k.note('said', 'your name, for the report')
 }
 
 async function contactStep(text) {
   if (contact.stage === 'name') {
-    if (!text) return setNote('said', 'your name, for the report')
-    contact.name = text.slice(0, 120); contact.stage = 'email'; ta.value = ''; onInput()
-    await show({ kind: 'said', echo: text, text: `Thank you, ${contact.name.split(/\s+/)[0]}. Which email should your report go to?`, status: 'your report · 2 of 3' })
-    setNote(); return
+    if (!text) return k.note('said', 'your name, for the report')
+    contact = { stage: 'email', name: text.slice(0, 120) }; k.clear()
+    await k.say(`Thank you, ${contact.name.split(/\s+/)[0]}. Which email should your report go to?`, { echo: text, status: 'your report · 2 of 3' })
+    return k.note()
   }
   if (contact.stage === 'email') {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) return setNote('err', 'That doesn’t look like an email. Try it again.')
-    contact.email = text; contact.stage = 'consent'; ta.value = ''; onInput()
-    await show({ kind: 'said', echo: text, text: 'May we email you your report, with your flight plan from Ground Zero, and three short follow-ups about it?', status: 'your report · 3 of 3 · enter or yes · esc or no' })
-    setNote(); return
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) return k.note('err', 'That doesn’t look like an email. Try it again.')
+    contact = { ...contact, stage: 'consent', email: text }; k.clear()
+    await k.say('May we email you your report, with your flight plan from Ground Zero, and three short follow-ups about it?', { echo: text, status: 'your report · 3 of 3 · enter or yes · esc or no' })
+    return k.note()
   }
-  if (contact.stage === 'consent') {
-    const t = text.toLowerCase()
-    if (t && !/^(y|n)/.test(t)) return setNote('err', 'Yes or no: enter for yes, escape for no.')
-    return finish(!t || t.startsWith('y'))
-  }
+  const t = text.toLowerCase()
+  if (t && !/^(y|n)/.test(t)) return k.note('err', 'Yes or no: enter for yes, escape for no.')
+  return finish(!t || t.startsWith('y'))
 }
 
 async function finish(consent) {
-  const { name, email } = contact
+  const { name, email } = contact, first = name.split(/\s+/)[0]
   contact = null
-  const first = name.split(/\s+/)[0]
-  await flight(consent ? 'yes' : 'no', async (out, wake) => {
+  await k.flight(consent ? 'yes' : 'no', async out => {
     try { state = await post('/api/contact', { id: state.id, name, email, consent }) }
-    catch (e) { out.error = e.message; contact = { stage: 'consent', name, email }; return }
-    out.text = consent
+    catch (e) { contact = { stage: 'consent', name, email }; throw e }
+    out.write(consent
       ? `Thank you, ${first}. Your report is on its way to ${email}: your problems, jobs and features, and your flight plan from Ground Zero.`
-      : `Thank you, ${first}. We won’t email you. What you worked out today is saved with your facilitator.`
-    wake()
+      : `Thank you, ${first}. We won’t email you. What you worked out today is saved with your facilitator.`)
   })
 }
 
-/* ---------- the wall and the way back ---------- */
-function wallItems() {
-  const w = state.wall, list = []
-  const item = (tag, stamp, what, color) => {
-    const el = document.createElement('div'); el.className = 'item'
-    const d = document.createElement('i'); d.className = 'dot'; d.style.setProperty('--c', color)
-    const inner = document.createElement('div')
-    const who = document.createElement('div'); who.className = 'who'
-    const a = document.createElement('span'); a.textContent = tag
-    const b = document.createElement('span'); b.className = 'stamp'; b.textContent = stamp
-    who.append(a, b)
-    const p = document.createElement('div'); p.className = 'what'; p.textContent = what
-    inner.append(who, p); el.append(d, inner); list.push(el)
-  }
-  if (w.product?.name) item(w.product.name, 'product', [w.product.who && `For ${w.product.who}.`, w.product.pitch && w.product.pitch[0].toUpperCase() + w.product.pitch.slice(1)].filter(Boolean).join(' '), 'var(--dim)')
-  for (const x of w.problems) item(`${x.id} · problem`, 'step 1', x.text, 'var(--bad)')
-  for (const x of w.workarounds) item(`${x.id} · workaround for ${x.problem}`, 'step 2', x.text + (x.pays ? ` · pays ${x.pays}` : ''), 'var(--warn)')
-  for (const x of w.jobs) item(`${x.id} · job${x.from ? ' from ' + x.from : ''}`, 'step 3', `When ${x.when}, I want ${x.want}, so ${x.so}.`, 'var(--mine)')
-  for (const x of w.features) item(`${x.id} · feature for ${x.job}`, 'step 4', x.name, 'var(--live)')
-  for (const x of w.unknowns) item(`${x.id} · parked to test`, '', x.text, 'var(--faint)')
-  return list
-}
-
-function wallScreen(how = 'turn') {
-  const all = wallItems(), start = Math.floor(lit / 5) * 5
-  const items = all.slice(start, start + 5)
-  items[lit - start]?.classList.add('lit')
-  return show({ kind: 'wall', echo: '', items, status: `${start + 1}–${start + items.length} of ${all.length} · your wall · esc to go back`, act: back }, how)
-}
-
-function openWall() {
-  if (busy || !state) return
-  if (!hasWall()) { ta.value = ''; onInput(); return setNote('said', 'Nothing on your wall yet: it fills as you answer.') }
-  view = 'wall'; lit = 0; ta.value = ''; onInput(); setNote()
-  wallScreen()
-}
-
-function moveLit(d) {
-  const n = wallItems().length, was = Math.floor(lit / 5)
-  lit = clamp(lit + d, 0, n - 1)
-  if (Math.floor(lit / 5) !== was) return wallScreen()
-  rows.items.forEach((el, i) => el.classList.toggle('lit', i === lit % 5))
-}
-
-function exchanges() {
-  const c = state.chat, out = []
-  c.forEach((m, i) => { if (m.role === 'coach') out.push({ echo: c[i - 1]?.role === 'founder' ? c[i - 1].text : '', text: m.text }) })
-  return out
-}
-
-function walk(d) {
-  const ex = exchanges()
-  if (view !== 'hist') { if (d > 0) return; view = 'hist'; hist = ex.length - 1 }
-  hist = clamp(hist + d, 0, ex.length - 1)
-  if (d > 0 && hist === ex.length - 1) return back()
-  const e = ex[hist]
-  show({ kind: 'said', echo: e.echo, text: e.text, status: `earlier · ${hist + 1} of ${ex.length} · ↓ later · esc for now`, act: back })
-}
-
-function back() {
-  if (view === 'live') return
-  view = 'live'
-  if (state.contacted) show(thanks())
-  else if (state.chat.length > 1) show(latest())
-  else hide()
-}
-
-/* ---------- keys ---------- */
-function act() {
-  if (busy) return
-  const text = ta.value.trim()
-  if (text.startsWith('/')) {
-    if (text.length > 1 && '/wall'.startsWith(text.toLowerCase())) return openWall()
-    return setNote('err', 'The only command is /wall. Everything else, just say.')
-  }
-  if (contact) return contactStep(text)
-  if (state.contacted) return text && setNote('said', 'That’s all four steps. Thank you: your report is with your facilitator.')
-  if (!text) return
-  if (state.done) { beginContact(); return contactStep(text) }
-  if (view !== 'live') { view = 'live'; if (state.chat.length > 1) show(latest(), 'instant') }
-  turn(text)
-}
-
-ta.addEventListener('keydown', e => {
-  if (e.isComposing) return
-  const empty = !ta.value
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); act() }
-  else if (e.key === 'Tab' && !$('commands').hidden) { e.preventDefault(); openWall() }
-  else if (e.key === 'Escape') {
-    e.preventDefault()
-    if (!empty) { ta.value = ''; onInput() }
-    else if (contact?.stage === 'consent') finish(false)
-    else if (view !== 'live') back()
-    else setNote()
-  }
-  else if (empty && !busy && view === 'wall' && (e.key === 'ArrowDown' || e.key === ' ')) { e.preventDefault(); moveLit(1) }
-  else if (empty && !busy && view === 'wall' && e.key === 'ArrowUp') { e.preventDefault(); moveLit(-1) }
-  else if (empty && !busy && !contact && body.dataset.phase === 'answer' && e.key === 'ArrowUp') { e.preventDefault(); walk(-1) }
-  else if (empty && !busy && view === 'hist' && e.key === 'ArrowDown') { e.preventDefault(); walk(1) }
+/* ---------- the kiosk ---------- */
+const k = mount({
+  invite: 'What are you building, and who is it for?',
+  hint: 'roadmap-first coach · one question at a time · the answers are yours',
+  ask, status, history: exchanges,
+  statusAction: () => hasWall() ? () => openWall(k) : null,
+  commands: [{ name: '/wall', hint: 'what you’ve said so far, step by step', run: openWall }],
+  intercept: async text => {
+    if (contact) { await contactStep(text); return true }
+    if (state?.contacted) { if (text) k.note('said', 'That’s all four steps. Thank you: your report is with your facilitator.'); return true }
+    if (state?.done && text) { beginContact(); await contactStep(text); return true }
+    return false
+  },
+  escape: () => { if (contact?.stage === 'consent') { finish(false); return true } return false },
+  after: () => { if (state.done && !state.contacted && !contact) beginContact() },
+  onError: e => { if (e.code === 'contact' && !contact) beginContact() },
 })
-ta.addEventListener('input', onInput)
-$('cmd').addEventListener('click', e => { e.stopPropagation(); openWall() })
-document.addEventListener('pointerdown', e => { if (e.target !== ta && !e.target.closest('button,.commands')) { e.preventDefault(); ta.focus({ preventScroll: true }) } })
-addEventListener('resize', () => { measure(); if (screen) show(screen, 'instant'); fitPrompt(); place() })
-window.visualViewport?.addEventListener('resize', () => { measure(); place() })
 
-/* ---------- start ---------- */
-async function start() {
-  measure()
-  await Promise.race([document.fonts.ready, sleep(1.5)])
-  measure(); fitPrompt(); place()
-  let id = null
-  try { id = localStorage.getItem('coach-session') } catch {}
-  try { state = await post('/api/session', { id }) }
-  catch (e) { setNote('err', e.message || 'The coach can’t be reached. Reload to try again.'); setPhase('rest'); return }
+let id = null
+try { id = localStorage.getItem('coach-session') } catch {}
+try {
+  state = await post('/api/session', { id })
   try { localStorage.setItem('coach-session', state.id) } catch {}
-  if (state.chat.length > 1 || state.contacted) {
-    body.classList.remove('idle')
-    await sleep(.3)
-    await show(state.contacted ? thanks() : latest())
-    setPhase('answer')
-    if (state.done && !state.contacted) beginContact()
-  } else {
-    firstVisit = true
-    invite()
-    setPhase('rest')
-  }
+  if (state.contacted) await k.resume('', 'Thank you. Your report is with your facilitator, and on its way to you if you asked for it.')
+  else if (state.chat.length > 1) { const last = exchanges().at(-1); await k.resume(last.echo, last.text) }
+  else k.invite()
+  if (state.done && !state.contacted) beginContact()
+} catch (e) {
+  k.note('err', e.message || 'The coach can’t be reached. Reload to try again.')
 }
-start()
 </script>
 </body>
 </html>

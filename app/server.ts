@@ -24,6 +24,11 @@ const PRICE = { input: 4e-6, output: 20e-6, cacheWrite: 5e-6, cacheRead: 0.2e-6 
 for (const d of ['sessions', 'intakes', 'usage']) mkdirSync(join(DATA, d), { recursive: true })
 const client = new Anthropic()
 const page = readFileSync(join(here, 'public', 'index.html'), 'utf8')
+// The kiosk kit (~/Code/kiosk-pattern), vendored beside the page
+const assets: Record<string, [string, Buffer]> = {
+  '/kiosk.js': ['text/javascript; charset=utf-8', readFileSync(join(here, 'public', 'kiosk.js'))],
+  '/kiosk.css': ['text/css; charset=utf-8', readFileSync(join(here, 'public', 'kiosk.css'))],
+}
 
 type Session = {
   id: string
@@ -137,6 +142,11 @@ const server = createServer(async (req, res) => {
       return res.end(page)
     }
     if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true })
+    if (req.method === 'GET' && assets[url.pathname]) {
+      const [type, data] = assets[url.pathname]
+      res.writeHead(200, { 'content-type': type, 'cache-control': 'no-cache' })
+      return res.end(data)
+    }
 
     if (req.method === 'POST' && url.pathname === '/api/session') {
       const { id } = await body(req)
