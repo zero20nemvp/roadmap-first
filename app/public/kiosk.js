@@ -534,16 +534,18 @@ export function mount(opts) {
     })
   }
 
-  /** Show a list five to a screen: ↑ ↓ and Space move the lit row, Enter opens it, Escape goes back. */
-  function showList(items, { title = '', open = null } = {}) {
-    view = 'list'; list = { items, title, open }; lit = 0
+  /** Show a list five to a screen: ↑ ↓ and Space move the lit row, Enter opens it, Escape goes back.
+      actions: { key: (item, k) => … } for keys pressed on the lit row, e.g. { t: trash }; keys: their hint in the status line.
+      at: the row to light, e.g. where it was when an action shows the list again. */
+  function showList(items, { title = '', open = null, actions = null, keys = '', at = 0 } = {}) {
+    view = 'list'; list = { items, title, open, actions, keys }; lit = clamp(at, 0, Math.max(0, items.length - 1))
     clearPrompt(); setNote()
     return pageList('turn')
   }
   function pageList(how) {
     const start = Math.floor(lit / 5) * 5, page = list.items.slice(start, start + 5), els = itemEls(page)
     els[lit - start]?.classList.add('lit')
-    return show({ items: els, status: `${start + 1}–${start + page.length} of ${list.items.length}${list.title ? ' · ' + list.title : ''} · esc to go back`, act: back }, how)
+    return show({ items: els, status: `${start + 1}–${start + page.length} of ${list.items.length}${list.title ? ' · ' + list.title : ''}${list.keys ? ' · ' + list.keys : ''} · esc to go back`, act: back }, how)
   }
   function moveLit(d) {
     const was = Math.floor(lit / 5)
@@ -633,6 +635,7 @@ export function mount(opts) {
     else if (view === 'tour' && e.key === 'ArrowUp') { e.preventDefault(); stepTour(-1) }
     else if (view === 'list' && (e.key === 'ArrowDown' || e.key === ' ')) { e.preventDefault(); moveLit(1) }
     else if (view === 'list' && e.key === 'ArrowUp') { e.preventDefault(); moveLit(-1) }
+    else if (view === 'list' && list.actions?.[e.key] && list.items[lit]) { e.preventDefault(); list.actions[e.key](list.items[lit], api, lit) }
     else if (root.dataset.phase === 'answer' && e.key === 'ArrowUp') { e.preventDefault(); walk(-1) }
     else if (view === 'hist' && e.key === 'ArrowDown') { e.preventDefault(); walk(1) }
   })
@@ -670,6 +673,8 @@ export function mount(opts) {
     animate: a => { for (const kind of ['send', 'think', 'land', 'fail']) if (a[kind]) anim[kind] = pick(kind, a[kind], Object.keys(ANIMATIONS[kind])[0]) },
     get busy() { return busy },
     get view() { return view },
+    /** Where the lit row of a list is. */
+    get lit() { return lit },
     root,
   }
 

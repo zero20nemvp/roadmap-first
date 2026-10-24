@@ -26,8 +26,10 @@ html,body{height:100%;margin:0;overflow:hidden;background:#0A151E}
 // The coach on the kiosk kit (kiosk.js, from ~/Code/kiosk-pattern): this file is only what the coach says and means.
 import { mount } from '/kiosk.js'
 
-let state = null   // the server's view: id, step, steps, wall, chat, done, contacted
-let contact = null // the end: { stage: 'name' | 'email' | 'consent', name, email }
+let state = null   // the server's view: id, step, steps, wall, chat, done, contacted, trashed
+let contact = null // the end: { stage: 'name' | 'email' | 'code' | 'consent', name, email }
+let me = null      // the account this browser is logged in as: { email, name }
+let login = null   // /login: { stage: 'email' | 'code', email }
 
 /** This browser's id: the server counts new conversations per browser, not per venue wifi. */
 const browser = (() => {
@@ -45,13 +47,15 @@ async function post(path, data) {
   return v
 }
 
-const counts = w => [[w.problems, 'problem'], [w.workarounds, 'workaround'], [w.jobs, 'job'], [w.features, 'feature'], [w.unknowns, 'parked']]
-  .filter(([a]) => a.length).map(([a, n]) => `${a.length} ${n === 'parked' ? n : n + (a.length > 1 ? 's' : '')}`).join(' · ')
+/** The wall without what is in the trash. */
+const liveWall = w => Object.fromEntries(Object.entries(w).map(([k, v]) => [k, Array.isArray(v) ? v.filter(x => !x.trashed) : v]))
+const counts = wall => { const w = liveWall(wall); return [[w.problems, 'problem'], [w.workarounds, 'workaround'], [w.jobs, 'job'], [w.features, 'feature'], [w.unknowns, 'parked']]
+  .filter(([a]) => a.length).map(([a, n]) => `${a.length} ${n === 'parked' ? n : n + (a.length > 1 ? 's' : '')}`).join(' · ') }
 const hasWall = () => !!(state && (state.wall.product?.name || counts(state.wall)))
 
 function status() {
   if (!state) return ''
-  if (state.contacted) return state.plan ? 'enter to walk your roadmap · /roadmap for the report · /new to start again' : 'enter to see your roadmap · /new to start again'
+  if (state.contacted && state.done) return state.plan ? 'enter to walk your roadmap · /roadmap for the report · /new to start again' : 'enter to see your roadmap · /new to start again'
   if (state.done) return 'the four steps are done · your report is next'
   const c = counts(state.wall)
   const where = state.step === 0 ? 'getting started' : `step ${state.step} of 4 · ${state.steps[state.step].toLowerCase()}`
@@ -85,17 +89,117 @@ function exchanges() {
 }
 
 /* ---------- the wall ---------- */
-function openWall(k) {
+function openWall(k, at = 0) {
   if (!hasWall()) return k.note('said', 'Nothing on your wall yet: it fills as you answer.')
-  const w = state.wall, items = []
+  const w = liveWall(state.wall), items = []
   const cap = s => s ? s[0].toUpperCase() + s.slice(1) : ''
   if (w.product?.name) items.push({ title: w.product.name, stamp: 'product', text: [w.product.who && `For ${w.product.who}.`, cap(w.product.pitch)].filter(Boolean).join(' '), dot: 'var(--dim)' })
-  for (const x of w.problems) items.push({ title: `${x.id} · problem`, stamp: 'step 1', text: x.text, dot: 'var(--bad)' })
-  for (const x of w.workarounds) items.push({ title: `${x.id} · workaround for ${x.problem}`, stamp: 'step 2', text: x.text + (x.pays ? ` · pays ${x.pays}` : ''), dot: 'var(--warn)' })
-  for (const x of w.jobs) items.push({ title: `${x.id} · job${x.from ? ' from ' + x.from : ''}`, stamp: 'step 3', text: `When ${x.when}, I want ${x.want}, so ${x.so}.`, dot: 'var(--mine)' })
-  for (const x of w.features) items.push({ title: `${x.id} · feature for ${x.job}`, stamp: 'step 4', text: x.name, dot: 'var(--live)' })
-  for (const x of w.unknowns) items.push({ title: `${x.id} · parked to test`, text: x.text, dot: 'var(--faint)' })
-  k.list(items, { title: 'your wall' })
+  for (const x of w.problems) items.push({ id: x.id, title: `${x.id} · problem`, stamp: 'step 1', text: x.text, dot: 'var(--bad)' })
+  for (const x of w.workarounds) items.push({ id: x.id, title: `${x.id} · workaround for ${x.problem}`, stamp: 'step 2', text: x.text + (x.pays ? ` · pays ${x.pays}` : ''), dot: 'var(--warn)' })
+  for (const x of w.jobs) items.push({ id: x.id, title: `${x.id} · job${x.from ? ' from ' + x.from : ''}`, stamp: 'step 3', text: `When ${x.when}, I want ${x.want}, so ${x.so}.`, dot: 'var(--mine)' })
+  for (const x of w.features) items.push({ id: x.id, title: `${x.id} · feature for ${x.job}`, stamp: 'step 4', text: x.name, dot: 'var(--live)' })
+  for (const x of w.unknowns) items.push({ id: x.id, title: `${x.id} · parked to test`, text: x.text, dot: 'var(--faint)' })
+  const toTrash = (x, k, i) => x.id ? trashItem(k, x.id, i) : k.note('err', 'Your product stays: it’s what the wall is about.')
+  k.list(items, { title: 'your wall', at, actions: { t: toTrash, Backspace: toTrash, Delete: toTrash }, keys: 't to trash' })
+}
+
+/* ---------- the trash: nothing is deleted, everything comes back ---------- */
+const item = (w, id) => [...w.problems, ...w.workarounds, ...w.jobs, ...w.features, ...w.unknowns].find(x => x.id === id)
+const words = x => x.name ?? (x.when ? `When ${x.when}, I want ${x.want}, so ${x.so}.` : x.text)
+
+async function trashItem(k, id, at) {
+  try { state = await post('/api/wall', { id: state.id, item: id, trashed: true }) } catch (e) { return k.note('err', e.message) }
+  const gone = [id, ...[...state.wall.workarounds, ...state.wall.features].filter(x => (x.problem === id || x.job === id) && x.trashed === item(state.wall, id).trashed).map(x => x.id)]
+  if (hasWall()) await openWall(k, at); else k.back()
+  k.note('said', `${gone.join(' and ')} moved to the trash · /trash brings ${gone.length > 1 ? 'them' : 'it'} back`)
+}
+
+let gotConversations = []
+async function openTrash(k, at = 0) {
+  const w = state.wall, items = []
+  const binned = [...w.problems, ...w.workarounds, ...w.jobs, ...w.features, ...w.unknowns].filter(x => x.trashed)
+    .sort((a, b) => b.trashed.localeCompare(a.trashed))
+  for (const x of binned) items.push({ kind: 'item', id: x.id, title: `${x.id} · from your wall`, stamp: when(x.trashed), text: words(x), dot: 'var(--faint)' })
+  if (me) {
+    try { gotConversations = (await (await fetch('/api/conversations')).json()).conversations ?? [] } catch {}
+    for (const c of gotConversations.filter(c => c.trashed)) items.push({ kind: 'conversation', id: c.id, title: c.product || 'a conversation not named yet', stamp: when(c.trashed), text: `conversation · ${c.done ? 'finished' : c.stepName.toLowerCase()} · started ${when(c.created)}`, dot: 'var(--dim)' })
+  }
+  if (!items.length) { k.back(); return k.note('said', 'Your trash is empty.') }
+  const restore = async (x, k, i) => {
+    try {
+      if (x.kind === 'item') state = await post('/api/wall', { id: state.id, item: x.id, trashed: false })
+      else await post('/api/conversation', { id: x.id, trashed: false })
+    } catch (e) { return k.note('err', e.message) }
+    await openTrash(k, i)
+    k.note('said', x.kind === 'item' ? `${x.id} is back on your wall` : `${x.title} is back in /conversations`)
+  }
+  k.list(items, { title: 'your trash', at, open: restore, actions: { t: restore }, keys: 'enter or t to bring back' })
+}
+const when = iso => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+const hasTrash = () => !!state && [...state.wall.problems, ...state.wall.workarounds, ...state.wall.jobs, ...state.wall.features, ...state.wall.unknowns].some(x => x.trashed)
+
+/* ---------- your conversations, under your account ---------- */
+async function openConversations(k, at = 0) {
+  let list
+  try { const r = await fetch('/api/conversations'); list = await r.json(); if (!r.ok) throw new Error(list.error) } catch (e) { return k.note('err', e.message) }
+  const items = list.conversations.filter(c => !c.trashed).map(c => ({
+    id: c.id, title: (c.product || 'not named yet') + (c.id === state?.id ? ' · open now' : ''), stamp: when(c.updated),
+    text: c.done ? 'finished · your roadmap is ready' : c.step === 0 ? 'just started' : `step ${c.step} of 4 · ${c.stepName.toLowerCase()}`,
+    dot: c.id === state?.id ? 'var(--mine)' : c.done ? 'var(--live)' : 'var(--dim)',
+  }))
+  if (!items.length) return k.note('said', 'No conversations yet: say what you’re building.')
+  const open = async x => {
+    if (x.id === state.id) return k.back()
+    try { state = await post('/api/session', { id: x.id, browser }) } catch (e) { return k.note('err', e.message) }
+    remember(); contact = null
+    await resumeHere(k)
+  }
+  const bin = async (x, k, i) => {
+    try { await post('/api/conversation', { id: x.id, trashed: true }) } catch (e) { return k.note('err', e.message) }
+    if (x.id === state.id) { await startNew(k); return k.note('said', 'Moved to your trash, and a fresh conversation is ready · /trash brings it back') }
+    await openConversations(k, i)
+    k.note('said', `${x.title} moved to the trash · /trash brings it back`)
+  }
+  k.list(items, { title: `your conversations · ${me.email}`, at, open, actions: { t: bin, Backspace: bin, Delete: bin }, keys: 'enter to open · t to trash' })
+}
+
+/* ---------- /login and /logout ---------- */
+function remember() { try { localStorage.setItem('coach-session', state.id) } catch {} }
+
+async function startLogin(k) {
+  login = { stage: 'email' }
+  await k.say('Which email are you? We’ll send a code to it.', { status: 'log in · 1 of 2 · esc to cancel' })
+}
+
+async function loginStep(k, text) {
+  if (login.stage === 'email') {
+    try { await post('/api/login/start', { email: text }) } catch (e) { return k.note('err', e.message) }
+    login = { stage: 'code', email: text }; k.clear()
+    await k.say(`We’ve sent a code to ${text}. Type it here.`, { echo: text, status: 'log in · 2 of 2 · esc to change the email' })
+    return k.note()
+  }
+  try { me = (await post('/api/login/verify', { email: login.email, code: text, id: state?.id })).me } catch (e) { return k.note('err', e.message) }
+  login = null; k.clear()
+  // this conversation is now theirs; on with it
+  try { state = await post('/api/session', { id: state?.id, browser }); remember() } catch {}
+  await resumeHere(k)
+  k.note('said', `Logged in as ${me.email} · /conversations has all of yours`)
+}
+
+async function logout(k) {
+  try { await post('/api/logout', {}) } catch {}
+  me = null; login = null; contact = null
+  try { localStorage.removeItem('coach-session') } catch {}
+  await startNew(k)
+  k.note('said', 'Logged out. Your conversations are safe in your account: /login to see them again.')
+}
+
+/** Show the open conversation where it stands. */
+async function resumeHere(k) {
+  if (state.contacted && state.done) await k.resume('', `Thank you. Your report is with your facilitator${state.consent ? ', and on its way to you' : ''}.\n\nPress enter to walk through your roadmap${state.plan ? ' and flight plan' : ''} again.`)
+  else if (state.chat.length > 1) { const last = exchanges().at(-1); await k.resume(last.echo, last.text) }
+  else await k.reset()
+  if (state.done && !state.contacted) beginContact()
 }
 
 /* ---------- the roadmap, played back at the end ---------- */
@@ -104,7 +208,7 @@ const releaseName = r => r.id === 'GZ' ? 'Ground Zero' : `Release ${r.id.slice(1
 const cap = s => s ? s[0].toUpperCase() + s.slice(1) : ''
 
 function showRoadmap(k, { at = 0 } = {}) {
-  const w = state.wall, p = state.plan, steps = []
+  const w = liveWall(state.wall), p = state.plan, steps = []
   const byId = xs => Object.fromEntries(xs.map(x => [x.id, x]))
   const jobs = byId(w.jobs), features = byId(w.features)
   steps.push({ title: 'your roadmap', text: [
@@ -191,9 +295,10 @@ let restarting = false
 
 /** /new: straight away once they're done; mid-way, one screen asks first. */
 async function askNew(k) {
-  if (state?.contacted || !(state?.chat.length > 1)) return startNew(k)
+  if ((state?.contacted && state.done) || !(state?.chat.length > 1)) return startNew(k)
+  if (me) return startNew(k).then(() => k.note('said', 'This one is kept in /conversations'))
   restarting = true
-  await k.say('Start a new conversation? This one stays with your facilitator, but you can’t come back to it from here.', { status: 'start again · enter or yes · esc or no' })
+  await k.say('Start a new conversation? This one stays with your facilitator, but you can’t come back to it from here unless you /login first.', { status: 'start again · enter or yes · esc or no' })
 }
 
 async function keepThis(k) {
@@ -205,14 +310,18 @@ async function keepThis(k) {
 
 async function startNew(k) {
   restarting = false
-  try { state = await post('/api/session', { browser }) } catch (e) { return k.note('err', e.message) }
-  try { localStorage.setItem('coach-session', state.id) } catch {}
+  try { state = await post('/api/session', { browser, fresh: true }) } catch (e) { return k.note('err', e.message) }
+  remember()
   contact = null
   await k.reset()
 }
 
-/* ---------- the end: name, email, consent, one screen each ---------- */
+/* ---------- the end: name, email and its code, consent, one screen each ---------- */
+const CONSENT = 'May we email you your report, with your flight plan from Ground Zero, and three short follow-ups about it?'
+
+/** Logged in, only what isn't known yet is asked: the name if the account has none, then the consent. */
 function beginContact() {
+  if (me?.name) { contact = { stage: 'consent', name: me.name, email: me.email }; return k.say(CONSENT, { status: 'your report · enter or yes · esc or no' }) }
   contact = { stage: 'name' }
   k.note('said', 'your name, for the report')
 }
@@ -220,14 +329,28 @@ function beginContact() {
 async function contactStep(text) {
   if (contact.stage === 'name') {
     if (!text) return k.note('said', 'your name, for the report')
-    contact = { stage: 'email', name: text.slice(0, 120) }; k.clear()
-    await k.say(`Thank you, ${contact.name.split(/\s+/)[0]}. Which email should your report go to?`, { echo: text, status: 'your report · 2 of 3' })
+    const first = text.split(/\s+/)[0]
+    k.clear()
+    if (me) {
+      contact = { stage: 'consent', name: text.slice(0, 120), email: me.email }
+      await k.say(`Thank you, ${first}. ${CONSENT}`, { echo: text, status: 'your report · enter or yes · esc or no' })
+      return k.note()
+    }
+    contact = { stage: 'email', name: text.slice(0, 120) }
+    await k.say(`Thank you, ${first}. Which email should your report go to? We’ll send a code to it, and that keeps all of this under your account.`, { echo: text, status: 'your report · 2 of 4' })
     return k.note()
   }
   if (contact.stage === 'email') {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) return k.note('err', 'That doesn’t look like an email. Try it again.')
-    contact = { ...contact, stage: 'consent', email: text }; k.clear()
-    await k.say('May we email you your report, with your flight plan from Ground Zero, and three short follow-ups about it?', { echo: text, status: 'your report · 3 of 3 · enter or yes · esc or no' })
+    try { await post('/api/login/start', { email: text }) } catch (e) { return k.note('err', e.message) }
+    contact = { ...contact, stage: 'code', email: text }; k.clear()
+    await k.say(`We’ve sent a code to ${text}. Type it here.`, { echo: text, status: 'your report · 3 of 4 · esc to change the email' })
+    return k.note()
+  }
+  if (contact.stage === 'code') {
+    try { me = (await post('/api/login/verify', { email: contact.email, code: text, id: state.id, name: contact.name })).me } catch (e) { return k.note('err', e.message) }
+    contact = { ...contact, stage: 'consent' }; k.clear()
+    await k.say(`That’s you, and your account is made: /conversations has this one from now on. ${CONSENT}`, { echo: text.replace(/\S/g, '•'), status: 'your report · 4 of 4 · enter or yes · esc or no' })
     return k.note()
   }
   const t = text.toLowerCase()
@@ -239,8 +362,9 @@ async function finish(consent) {
   const { name, email } = contact, first = name.split(/\s+/)[0]
   contact = null
   await k.flight(consent ? 'yes' : 'no', async out => {
-    try { state = await post('/api/contact', { id: state.id, name, email, consent }) }
+    try { state = await post('/api/contact', { id: state.id, name, consent }) }
     catch (e) { contact = { stage: 'consent', name, email }; throw e }
+    me = state.me ?? me
     out.write([
       consent ? `Thank you, ${first}. Your report is on its way to ${email}.` : `Thank you, ${first}. We won’t email you, and what you worked out is saved with your facilitator.`,
       state.plan ? 'Before you go, here is your roadmap, and your flight plan from Ground Zero. Press enter to walk through it.' : 'Before you go, here is your roadmap. Press enter to walk through it.',
@@ -253,14 +377,19 @@ const k = mount({
   invite: 'What are you building, and who is it for?',
   hint: 'roadmap-first coach · one question at a time · the answers are yours',
   ask, status, history: exchanges,
-  statusAction: () => state?.contacted ? () => showRoadmap(k) : hasWall() ? () => openWall(k) : null,
+  statusAction: () => state?.contacted && state.done ? () => showRoadmap(k) : hasWall() ? () => openWall(k) : null,
   commands: [
-    { name: '/wall', hint: 'what you’ve said so far, step by step', run: openWall, when: hasWall },
+    { name: '/wall', hint: 'what you’ve said so far, step by step · t to trash', run: k => openWall(k), when: hasWall },
+    { name: '/trash', hint: 'what you set aside: bring it back', run: k => openTrash(k), when: () => hasTrash() || !!me },
+    { name: '/conversations', hint: 'every conversation under your account', run: k => openConversations(k), when: () => !!me },
     // offered only once there's a report to show: the four steps done, the email left, the flight plan cut
     { name: '/roadmap', hint: 'your roadmap report, with the flight plan', run: () => openPage(null), when: () => !!(state?.contacted && state.plan) },
     { name: '/new', hint: 'start a new conversation', run: askNew, when: () => state?.chat.length > 1 },
-  ],
+    { name: '/login', hint: 'your conversations, on any browser: we email you a code', run: startLogin, when: () => !me },
+    { name: '/logout', hint: () => `logged in as ${me?.email}`, run: logout, when: () => !!me },
+  ].map(c => typeof c.hint === 'function' ? Object.defineProperty(c, 'hint', { get: c.hint }) : c),
   intercept: async text => {
+    if (login) { if (text) await loginStep(k, text); return true }
     if (restarting) {
       const t = text.toLowerCase()
       if (t && !/^(y|n)/.test(t)) { k.note('err', 'Yes or no: enter for yes, escape for no.'); return true }
@@ -269,26 +398,30 @@ const k = mount({
       return true
     }
     if (contact) { await contactStep(text); return true }
-    if (state?.contacted) { if (text) k.note('said', 'You’re done with this one. Press enter to see your roadmap again, or type /new to start a new conversation.'); else showRoadmap(k); return true }
+    if (state?.contacted && state.done) { if (text) k.note('said', 'You’re done with this one. Press enter to see your roadmap again, or type /new to start a new conversation.'); else showRoadmap(k); return true }
     if (state?.done && text) { beginContact(); await contactStep(text); return true }
     return false
   },
   escape: () => {
+    if (login) {
+      if (login.stage === 'code') { login = { stage: 'email' }; k.say('Which email are you? We’ll send a code to it.', { status: 'log in · 1 of 2 · esc to cancel' }); return true }
+      login = null; resumeHere(k); return true
+    }
     if (restarting) { keepThis(k); return true }
+    if (contact?.stage === 'code') { contact = { stage: 'email', name: contact.name }; k.say('Which email should your report go to?', { status: 'your report · 2 of 4' }); return true }
     if (contact?.stage === 'consent') { finish(false); return true } return false },
   after: () => { if (state.done && !state.contacted && !contact) beginContact() },
-  onError: e => { if (e.code === 'contact' && !contact) beginContact() },
+  onError: e => { if ((e.code === 'contact' || e.code === 'login') && !contact) beginContact() },
 })
 
 let id = null
 try { id = localStorage.getItem('coach-session') } catch {}
 try {
   state = await post('/api/session', { id, browser })
-  try { localStorage.setItem('coach-session', state.id) } catch {}
-  if (state.contacted) await k.resume('', `Thank you. Your report is with your facilitator${state.consent ? ', and on its way to you' : ''}.\n\nPress enter to walk through your roadmap${state.plan ? ' and flight plan' : ''} again.`)
-  else if (state.chat.length > 1) { const last = exchanges().at(-1); await k.resume(last.echo, last.text) }
-  else k.invite()
-  if (state.done && !state.contacted) beginContact()
+  me = state.me
+  remember()
+  if (state.chat.length > 1 || (state.contacted && state.done)) await resumeHere(k)
+  else { k.invite(); if (state.done && !state.contacted) beginContact() }
 } catch (e) {
   k.note('err', e.message || 'The coach can’t be reached. Reload to try again.')
 }

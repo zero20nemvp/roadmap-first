@@ -76,7 +76,9 @@ type Session = {
 const sessionPath = (id: string) => join(DATA, 'sessions', `${id}.json`)
 const validId = (id: unknown): id is string => typeof id === 'string' && /^[A-Za-z0-9_-]{22}$/.test(id)
 const load = (id: string): Session | null => existsSync(sessionPath(id)) ? JSON.parse(readFileSync(sessionPath(id), 'utf8')) : null
-const save = (s: Session) => { s.updated = new Date().toISOString(); writeFileSync(sessionPath(s.id), JSON.stringify(s)) }
+const save = (s: Session, touch = true) => { if (touch) s.updated = new Date().toISOString(); writeFileSync(sessionPath(s.id), JSON.stringify(s)) }
+/** Nothing said in it yet: not worth keeping under an account. */
+const empty = (s: Session) => s.chat.length <= 1
 
 const today = () => new Date().toISOString().slice(0, 10)
 const usagePath = () => join(DATA, 'usage', `${today()}.json`)
@@ -335,12 +337,12 @@ const server = createServer(async (req, res) => {
       const { id, browser, fresh } = await body(req)
       const who = whoIs(req)
       let existing = validId(id) ? load(id) : null
-      if (!owns(existing, who) || existing.trashed) existing = null
+      if (!owns(existing, who) || existing.trashed || (who && !existing.account && empty(existing))) existing = null
       // logged in on a browser with nothing open: their latest conversation
       if (!existing && who && fresh !== true) existing = mine(who).filter(s => !s.trashed).sort((a, b) => b.updated.localeCompare(a.updated))[0] ?? null
       if (existing) {
         // a conversation this browser started before logging in is theirs
-        if (who && !existing.account) { existing.account = who.id; save(existing) }
+        if (who && !existing.account) { existing.account = who.id; save(existing, false) }
         return json(res, 200, { ...view(existing), me: me(who) })
       }
       if (!allowNew(browser, ip)) return json(res, 429, { error: 'Too many new conversations from here. Try again in an hour.' })
@@ -372,7 +374,7 @@ const server = createServer(async (req, res) => {
       // proving the email claims this browser's conversation, and any left with that email before
       const here = validId(id) ? load(id) : null
       for (const s of [here, ...readdirSync(join(DATA, 'sessions')).map(f => load(f.slice(0, -5)))]) {
-        if (s && !s.account && (s.id === here?.id || normalEmail(s.contact?.email) === email)) { s.account = who.id; save(s) }
+        if (s && !s.account && ((s.id === here?.id && !empty(s)) || normalEmail(s.contact?.email) === email)) { s.account = who.id; save(s, false) }
       }
       return json(res, 200, { me: me(who) }, { 'set-cookie': setCookie(accounts.login(who.id), SECURE) })
     }
