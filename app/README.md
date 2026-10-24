@@ -32,7 +32,7 @@ The coach sends its own email through the `smtp` container's relay (Postfix at `
 - **To the facilitator** (`FACILITATOR_EMAIL`): one note per finished conversation, with who, what, whether they said yes, and their roadmap link.
 - **To founders who said yes:** the four emails in `docs/emails`. Email 01 goes as soon as the flight plan is cut and links their roadmap website; 02, 03 and 04 follow 3, 4 and 4 days after the one before. Each one ends with a link (`/stop/<id>`) that stops the rest.
 - Only conversations finished after email was switched on (`data/mail/since`) get any, so nobody from before is surprised. What each founder has been sent is in `data/mail/<id>.json` and on the admin page.
-- Settings in `/etc/roadmap-coach.env`: `SMTP_HOST` (no host, no email), `SMTP_PORT`, `FACILITATOR_EMAIL`, and optionally `FACILITATOR` (the name the emails are signed with, default Delaney), `MAIL_FROM`, `PUBLIC_URL`, `BOOKING_LINK` (without it, email 04 asks them to reply to book time).
+- Settings in `/etc/roadmap-coach.env`: `SMTP_HOST` (no host, no email), `SMTP_PORT`, `FACILITATOR_EMAIL`, and optionally `FACILITATOR` (the name the emails are signed with, default Delaney), `MAIL_FROM`, `PUBLIC_URL`, `COACH_NAME` (what the page calls the coach, default Roadmap First), `BOOKING_LINK` (without it, email 04 asks them to reply to book time).
 - The relay accepts `db@zero2one.ee` and `noreply@zero2one.ee` as senders: the series comes from `db@`, so replies come back there; login codes come from `noreply@`.
 
 ## Limits (it's free, so it's capped)

@@ -38,11 +38,15 @@ const PUBLIC_URL = (process.env.PUBLIC_URL ?? 'https://roadmap.zero2one.ee').rep
 const CODE_FROM = process.env.CODE_FROM ?? 'Roadmap First <noreply@zero2one.ee>'
 const SECURE = PUBLIC_URL.startsWith('https:')
 const BOOKING_LINK = process.env.BOOKING_LINK ?? ''
+// what this coach calls itself on the page; each container sets its own
+const COACH_NAME = process.env.COACH_NAME ?? 'Roadmap First'
 
 for (const d of ['sessions', 'intakes', 'plans', 'usage', 'mail']) mkdirSync(join(DATA, d), { recursive: true })
 const client = new Anthropic()
 const accounts = auth(DATA)
+// the name goes into a script as a JSON string, with < escaped so it can't close the tag
 const page = readFileSync(join(here, 'public', 'index.html'), 'utf8')
+  .replace('{{coach_name}}', JSON.stringify(COACH_NAME).replace(/</g, '\\u003c'))
 // The kiosk kit (~/Code/kiosk-pattern), vendored beside the page
 const assets: Record<string, [string, Buffer]> = {
   '/kiosk.js': ['text/javascript; charset=utf-8', readFileSync(join(here, 'public', 'kiosk.js'))],
