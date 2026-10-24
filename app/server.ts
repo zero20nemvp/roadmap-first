@@ -18,7 +18,8 @@ const ADMIN_KEY = process.env.ADMIN_KEY ?? ''
 const DAILY_USD = Number(process.env.DAILY_USD ?? 40)
 const MAX_TURNS = 80
 const MAX_CHARS = 2000
-const NEW_PER_HOUR = 6
+const NEW_PER_HOUR = 6 // per browser
+const NEW_PER_HOUR_IP = 60 // per IP: a venue's wifi puts a whole room behind one
 // $ per token, Claude Opus 5.5
 const PRICE = { input: 4e-6, output: 20e-6, cacheWrite: 5e-6, cacheRead: 0.2e-6 }
 
@@ -58,11 +59,15 @@ const cost = (u: Anthropic.Beta.BetaUsage) =>
   (u.cache_creation_input_tokens ?? 0) * PRICE.cacheWrite + (u.cache_read_input_tokens ?? 0) * PRICE.cacheRead
 
 const created = new Map<string, number[]>()
-function allowNew(ip: string) {
+/** New conversations are counted per browser (its id from the page), with a looser ceiling per IP. */
+function allowNew(browser: unknown, ip: string) {
   const hour = Date.now() - 3600_000
-  const recent = (created.get(ip) ?? []).filter(t => t > hour)
-  if (recent.length >= NEW_PER_HOUR) return false
-  created.set(ip, [...recent, Date.now()])
+  const b = 'b:' + (typeof browser === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(browser) ? browser : ip)
+  const recent = (key: string) => (created.get(key) ?? []).filter(t => t > hour)
+  const mine = recent(b), room = recent('ip:' + ip)
+  if (mine.length >= NEW_PER_HOUR || room.length >= NEW_PER_HOUR_IP) return false
+  created.set(b, [...mine, Date.now()])
+  created.set('ip:' + ip, [...room, Date.now()])
   return true
 }
 const busy = new Set<string>()
@@ -212,10 +217,10 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/session') {
-      const { id } = await body(req)
+      const { id, browser } = await body(req)
       const existing = validId(id) ? load(id) : null
       if (existing) return json(res, 200, view(existing))
-      if (!allowNew(ip)) return json(res, 429, { error: 'Too many new conversations from here. Try again in an hour.' })
+      if (!allowNew(browser, ip)) return json(res, 429, { error: 'Too many new conversations from here. Try again in an hour.' })
       const now = new Date().toISOString()
       const s: Session = {
         id: randomBytes(16).toString('base64url'), created: now, updated: now, turns: 0, usd: 0,

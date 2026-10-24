@@ -18,7 +18,8 @@ As a founder reaches step 5, the server cuts a first flight plan from their wall
 | Daily spend across everyone | `DAILY_USD`, default $40; after that the coach says it's resting until tomorrow |
 | Founder turns per conversation | 80 |
 | Characters per answer | 2,000 |
-| New conversations per IP per hour | 6 |
+| New conversations per browser per hour | 6 (the page sends a random id it keeps in the browser) |
+| New conversations per IP per hour | 60, so a room on one wifi isn't stopped at the seventh founder |
 
 Cost is estimated from each response's token usage at Claude Opus 5.5 prices. The admin page shows it per conversation and for the day.
 

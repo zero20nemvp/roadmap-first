@@ -19,6 +19,15 @@ import { mount } from '/kiosk.js'
 let state = null   // the server's view: id, step, steps, wall, chat, done, contacted
 let contact = null // the end: { stage: 'name' | 'email' | 'consent', name, email }
 
+/** This browser's id: the server counts new conversations per browser, not per venue wifi. */
+const browser = (() => {
+  try {
+    let b = localStorage.getItem('coach-browser')
+    if (!b) localStorage.setItem('coach-browser', b = crypto.randomUUID())
+    return b
+  } catch { return crypto.randomUUID() }
+})()
+
 async function post(path, data) {
   const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) })
   const v = await r.json().catch(() => ({ error: 'Something went wrong. Try again.' }))
@@ -140,7 +149,7 @@ async function keepThis(k) {
 
 async function startNew(k) {
   restarting = false
-  try { state = await post('/api/session', {}) } catch (e) { return k.note('err', e.message) }
+  try { state = await post('/api/session', { browser }) } catch (e) { return k.note('err', e.message) }
   try { localStorage.setItem('coach-session', state.id) } catch {}
   contact = null
   await k.reset()
@@ -217,7 +226,7 @@ const k = mount({
 let id = null
 try { id = localStorage.getItem('coach-session') } catch {}
 try {
-  state = await post('/api/session', { id })
+  state = await post('/api/session', { id, browser })
   try { localStorage.setItem('coach-session', state.id) } catch {}
   if (state.contacted) await k.resume('', `Thank you. Your report is with your facilitator${state.consent ? ', and on its way to you' : ''}.\n\nPress enter to walk through your roadmap${state.plan ? ' and flight plan' : ''} again.`)
   else if (state.chat.length > 1) { const last = exchanges().at(-1); await k.resume(last.echo, last.text) }
