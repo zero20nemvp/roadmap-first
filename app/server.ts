@@ -14,6 +14,8 @@ import { renderRoadmap } from '../web/roadmap.ts'
 import { type Account, auth, clearCookie, normalEmail, readCookie, setCookie, validEmail } from './auth.ts'
 import { apply, CUT_SCHEMA, CUT_SYSTEM, cutPrompt, DONE, emptyWall, fromCut, GREETING, groundZero, live, migrate, settle, STEP_NAMES, summary, SYSTEM, toReport, TOOLS, trash, untrash, type Cut, type Wall } from './coach.ts'
 import { codeEmail, due, type Email, facilitatorEmail, type MailLog, parseTemplate, seriesEmail, SERIES, type Template } from './mail.ts'
+import QRCode from 'qrcode'
+import { admit, contactOf, type Contact, isMember, isTeam, joins, owns, recipients, spoken, TEAM_NOTE, trashedFor, turns, unchanged, validCode, version } from './team.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const DATA = process.env.DATA_DIR ?? join(here, 'data')
@@ -69,15 +71,22 @@ type Session = {
   usd: number
   wall: Wall
   messages: Anthropic.Beta.BetaMessageParam[]
-  /** What the founder saw, for resuming the page and for the facilitator. */
-  chat: { role: 'coach' | 'founder'; text: string }[]
-  contact?: { name: string; email: string; consent: boolean; at: string }
-  /** The founder's account, once they have proven their email; the conversation then answers only to its login. */
+  /** What the founder saw, for resuming the page and for the facilitator; in a team, who said each founder line. */
+  chat: { role: 'coach' | 'founder'; text: string; by?: string }[]
+  /** The end; in a team, the first member to finish, and each member's own in contacts. */
+  contact?: Contact
+  contacts?: Record<string, Contact>
+  /** The founder's account, once they have proven their email; the conversation then answers only to its login and its team's. */
   account?: string
-  /** Set aside by the founder: kept, and listed in their trash. */
+  /** Its team's accounts, once someone has typed /team. */
+  members?: string[]
+  /** Set aside by the founder: kept, and listed in their trash; in a team, set aside per member. */
   trashed?: string
+  trashedFor?: Record<string, string>
   /** What the founder changed on the wall themselves, for the coach to hear on the next turn. */
   notes?: string[]
+  /** Counts every save, so a team's screens poll for what changed. */
+  rev?: number
 }
 
 const sessionPath = (id: string) => join(DATA, 'sessions', `${id}.json`)
@@ -88,7 +97,7 @@ const load = (id: string): Session | null => {
   migrate(s.wall)
   return s
 }
-const save = (s: Session, touch = true) => { if (touch) s.updated = new Date().toISOString(); writeFileSync(sessionPath(s.id), JSON.stringify(s)) }
+const save = (s: Session, touch = true) => { if (touch) s.updated = new Date().toISOString(); s.rev = (s.rev ?? 0) + 1; writeFileSync(sessionPath(s.id), JSON.stringify(s)) }
 /** Nothing said in it yet: not worth keeping under an account. */
 const empty = (s: Session) => s.chat.length <= 1
 
@@ -112,19 +121,25 @@ function allowNew(browser: unknown, ip: string) {
   created.set('ip:' + ip, [...room, Date.now()])
   return true
 }
-const busy = new Set<string>()
+/** One turn at a time per conversation, with who is taking it (AX-ROADMAP-FIRST-00053). */
+const lock = turns()
+const team = joins(DATA)
 
 /** Who this request is logged in as, if anyone. */
 const whoIs = (req: IncomingMessage): Account | null => accounts.whoIs(readCookie(req.headers.cookie))
-/** A conversation with an account answers only to that account; one without answers to whoever has its id. */
-const owns = (s: Session | null, who: Account | null): s is Session => !!s && (!s.account || s.account === who?.id)
-const mine = (who: Account) => readdirSync(join(DATA, 'sessions')).map(f => load(f.slice(0, -5))).filter((s): s is Session => s?.account === who.id)
+/** Every conversation under an account: its own, and the teams it has joined. */
+const mine = (who: Account) => readdirSync(join(DATA, 'sessions')).map(f => load(f.slice(0, -5))).filter((s): s is Session => !!s && (s.account === who.id || isMember(s, who)))
 const me = (who: Account | null) => who ? { email: who.email, name: who.name } : null
+/** What a member is called in the room: their name, else their email before the @. */
+const nameOf = (id: string) => { const a = accounts.byId(id); return a ? a.name || a.email.split('@')[0] : '' }
 
-function view(s: Session) {
+/** The conversation as one person sees it: in a team, their own end and their own trash. */
+function view(s: Session, who: Account | null) {
+  const mineEnd = contactOf(s, who), answering = lock.who(s.id)
   return {
-    id: s.id, step: s.wall.step, steps: STEP_NAMES, wall: s.wall, chat: s.chat, done: s.wall.step === DONE, trashed: s.trashed ?? null,
-    contacted: !!s.contact, consent: !!s.contact?.consent, plan: s.contact ? readPlan(s.id) : null,
+    id: s.id, step: s.wall.step, steps: STEP_NAMES, wall: s.wall, chat: s.chat, done: s.wall.step === DONE, trashed: trashedFor(s, who),
+    contacted: !!mineEnd, consent: !!mineEnd?.consent, plan: s.contact ? readPlan(s.id) : null,
+    team: isTeam(s) ? s.members!.map(nameOf) : null, answering, v: version(s.rev ?? 0, answering),
   }
 }
 
@@ -145,14 +160,20 @@ const arguedRows = (w: Wall) => groundZero(w).features.flatMap(f => {
   return a ? [{ feature: f.id, name: f.name, keep: a.keep, reason: a.reason }] : []
 })
 
-/** What the facilitator's report run starts from: the wall, and the flight plan the founder saw when there is one. */
+/** A team's names together, for the report: "Ada, Greg and Michle". */
+const together = (names: string[]) => names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0] ?? ''
+/** Who the roadmap is for: the founder, or every member of the team who has finished. */
+const founderOf = (s: Session) => isTeam(s) ? together(recipients(s).map(r => r.contact.name)) : s.contact?.name ?? ''
+
+/** What the facilitator's report run starts from: the wall, and the flight plan the founder saw when there is one. A team's is one intake, listing every member. */
 function writeIntake(id: string) {
   const s = load(id)
   if (!s?.contact) return
-  const { name, email, consent } = s.contact
+  const { email, consent } = s.contact, name = founderOf(s)
   const plan = readPlan(id)
   writeFileSync(join(DATA, 'intakes', `${id}.json`), JSON.stringify({
     consent, report: toReport(s.wall, { name, email }), unknowns: live(s.wall).unknowns, argued: arguedRows(s.wall),
+    ...(isTeam(s) ? { members: recipients(s).map(r => ({ name: r.contact.name, email: r.contact.email, consent: r.contact.consent })) } : {}),
     ...(plan ? { plan: { ...plan, founder: { name, email } } } : {}),
   }, null, 2))
 }
@@ -229,23 +250,28 @@ async function sendMail() {
   try {
     for (const f of readdirSync(join(DATA, 'sessions'))) {
       const s = load(f.slice(0, -5))
-      if (!s?.contact || s.contact.at < MAIL_SINCE) continue
-      const log = readMail(s.id), plan = readPlan(s.id), reportLink = `${PUBLIC_URL}/roadmap/${s.id}`
-      const { name, email, consent } = s.contact
-      try {
-        if (!log.facilitator) {
-          await deliver(facilitatorEmail(FACILITATOR_EMAIL, { name, email, consent, product: s.wall.product?.name ?? '', reportLink, adminLink: `${PUBLIC_URL}/admin`, hasPlan: !!plan }))
-          log.facilitator = new Date().toISOString(); writeMail(s.id, log)
+      if (!s) continue
+      const plan = readPlan(s.id), reportLink = `${PUBLIC_URL}/roadmap/${s.id}`
+      // a solo founder, or each member of a team, with their own log and their own way to stop
+      for (const { key: mailKey, account, contact } of recipients(s)) {
+        if (contact.at < MAIL_SINCE) continue
+        const log = readMail(mailKey)
+        const { name, email, consent } = contact
+        try {
+          if (!log.facilitator) {
+            await deliver(facilitatorEmail(FACILITATOR_EMAIL, { name, email, consent, product: s.wall.product?.name ?? '', reportLink, adminLink: `${PUBLIC_URL}/admin`, hasPlan: !!plan }))
+            log.facilitator = new Date().toISOString(); writeMail(mailKey, log)
+          }
+          const key = consent && plan ? due(log, Date.now()) : null // email 01 waits for the flight plan it links to
+          if (!key) continue
+          const stopLink = `${PUBLIC_URL}/stop/${s.id}${account ? '/' + account : ''}`
+          const vars = { name: name.split(/\s+/)[0], product: s.wall.product?.name ?? 'your product', report_link: reportLink, facilitator: FACILITATOR, booking_link: BOOKING_LINK }
+          await deliver(seriesEmail(templates.find(t => t.key === key)!, email, vars, stopLink), { 'List-Unsubscribe': `<${stopLink}>` })
+          log.sent[key] = new Date().toISOString(); writeMail(mailKey, log)
+          console.log(mailKey, 'sent email', key)
+        } catch (err) {
+          console.error(mailKey, 'mail', err)
         }
-        const key = consent && plan ? due(log, Date.now()) : null // email 01 waits for the flight plan it links to
-        if (!key) continue
-        const stopLink = `${PUBLIC_URL}/stop/${s.id}`
-        const vars = { name: name.split(/\s+/)[0], product: s.wall.product?.name ?? 'your product', report_link: reportLink, facilitator: FACILITATOR, booking_link: BOOKING_LINK }
-        await deliver(seriesEmail(templates.find(t => t.key === key)!, email, vars, stopLink), { 'List-Unsubscribe': `<${stopLink}>` })
-        log.sent[key] = new Date().toISOString(); writeMail(s.id, log)
-        console.log(s.id, 'sent email', key)
-      } catch (err) {
-        console.error(s.id, 'mail', err)
       }
     }
   } finally {
@@ -268,13 +294,15 @@ function json(res: ServerResponse, status: number, data: unknown, headers: Recor
   res.end(JSON.stringify(data))
 }
 
-/** One founder turn: stream the coach's words, apply its tool calls, loop until it asks its question. */
-async function turn(s: Session, text: string, send: (event: object) => void) {
+/** One founder turn: stream the coach's words, apply its tool calls, loop until it asks its question. In a team, `by` is who spoke. */
+async function turn(s: Session, text: string, send: (event: object) => void, who: Account | null) {
+  const by = isTeam(s) && who ? nameOf(who.id) : null
   // what the founder changed on the wall themselves comes first, so the coach isn't surprised by it
   const notes = s.notes?.length ? `(Since your last question, the founder changed the wall themselves: ${s.notes.join(' ')} The wall now:\n${summary(s.wall)})` : ''
-  s.messages.push({ role: 'user', content: notes ? [{ type: 'text', text: notes }, { type: 'text', text }] : text })
-  s.chat.push({ role: 'founder', text })
-  let said = ''
+  const said = spoken(text, by)
+  s.messages.push({ role: 'user', content: notes ? [{ type: 'text', text: notes }, { type: 'text', text: said }] : said })
+  s.chat.push({ role: 'founder', text, ...(by ? { by } : {}) })
+  let reply = ''
   for (let round = 0; round < 8; round++) {
     const stream = client.beta.messages.stream({
       model: MODEL,
@@ -283,11 +311,11 @@ async function turn(s: Session, text: string, send: (event: object) => void) {
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
       cache_control: { type: 'ephemeral' },
-      system: SYSTEM,
+      system: isTeam(s) ? SYSTEM + TEAM_NOTE : SYSTEM,
       tools: TOOLS,
       messages: s.messages,
     })
-    stream.on('text', delta => { said += delta; send({ type: 'text', delta }) })
+    stream.on('text', delta => { reply += delta; send({ type: 'text', delta }) })
     const msg = await stream.finalMessage()
     // Append the whole response, thinking blocks included, unchanged.
     s.messages.push({ role: 'assistant', content: msg.content })
@@ -296,7 +324,7 @@ async function turn(s: Session, text: string, send: (event: object) => void) {
     spend(usd)
     if (msg.stop_reason === 'refusal') {
       const sorry = 'Sorry, I can’t help with that one. Let’s get back to your customer: what’s the problem you most want to solve for them?'
-      said += sorry
+      reply += sorry
       send({ type: 'text', delta: sorry })
       break
     }
@@ -313,18 +341,19 @@ async function turn(s: Session, text: string, send: (event: object) => void) {
       })
     }
     s.messages.push({ role: 'user', content: results })
-    send({ type: 'wall', ...view(s) })
-    if (said && !said.endsWith('\n')) { said += '\n\n'; send({ type: 'text', delta: '\n\n' }) }
+    send({ type: 'wall', ...view(s, who) })
+    if (reply && !reply.endsWith('\n')) { reply += '\n\n'; send({ type: 'text', delta: '\n\n' }) }
   }
-  s.chat.push({ role: 'coach', text: said.trim() })
+  s.chat.push({ role: 'coach', text: reply.trim() })
 }
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://local')
   const ip = String(req.headers['x-forwarded-for'] ?? req.socket.remoteAddress ?? '').split(',')[0].trim()
   try {
-    if (req.method === 'GET' && url.pathname === '/') {
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+    // the page, and the same page at a team's join link: it reads the code from its address
+    if (req.method === 'GET' && (url.pathname === '/' || /^\/join\/[A-Za-z0-9]{6}$/.test(url.pathname))) {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', ...(url.pathname === '/' ? {} : { 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' }) })
       return res.end(page)
     }
     if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true })
@@ -347,21 +376,30 @@ const server = createServer(async (req, res) => {
       if (!s?.contact || !plan) return json(res, 404, { error: 'No roadmap here yet.' })
       const generated = new Date(s.contact.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-frame-options': 'SAMEORIGIN', 'referrer-policy': 'no-referrer' })
-      return res.end(renderRoadmap(roadmapTemplate, { ...plan, founder: { name: s.contact.name } },
+      return res.end(renderRoadmap(roadmapTemplate, { ...plan, founder: { name: founderOf(s) } },
         { unknowns: live(s.wall).unknowns, argued: arguedRows(s.wall), chat: s.chat, generated }, '<script src="/roadmap-vendor.js"></script>'))
+    }
+
+    // a team's screens, every 3 seconds: the view only if something changed since the one they have (AX-ROADMAP-FIRST-00052)
+    const polled = req.method === 'GET' && url.pathname.match(/^\/api\/session\/([A-Za-z0-9_-]{22})$/)
+    if (polled) {
+      const s = load(polled[1]), who = whoIs(req)
+      if (!owns(s, who)) return json(res, 404, { error: 'That conversation has gone.' })
+      if (unchanged(url.searchParams.get('since'), s.rev ?? 0, lock.who(s.id))) { res.writeHead(304, { 'cache-control': 'no-store' }); return res.end() }
+      return json(res, 200, { ...view(s, who), me: me(who) })
     }
 
     if (req.method === 'POST' && url.pathname === '/api/session') {
       const { id, browser, fresh } = await body(req)
       const who = whoIs(req)
       let existing = validId(id) ? load(id) : null
-      if (!owns(existing, who) || existing.trashed || (who && !existing.account && empty(existing))) existing = null
+      if (!owns(existing, who) || trashedFor(existing, who) || (who && !existing.account && empty(existing))) existing = null
       // logged in on a browser with nothing open: their latest conversation
-      if (!existing && who && fresh !== true) existing = mine(who).filter(s => !s.trashed).sort((a, b) => b.updated.localeCompare(a.updated))[0] ?? null
+      if (!existing && who && fresh !== true) existing = mine(who).filter(s => !trashedFor(s, who)).sort((a, b) => b.updated.localeCompare(a.updated))[0] ?? null
       if (existing) {
         // a conversation this browser started before logging in is theirs
         if (who && !existing.account) { existing.account = who.id; save(existing, false) }
-        return json(res, 200, { ...view(existing), me: me(who) })
+        return json(res, 200, { ...view(existing, who), me: me(who) })
       }
       if (!allowNew(browser, ip)) return json(res, 429, { error: 'Too many new conversations from here. Try again in an hour.' })
       const now = new Date().toISOString()
@@ -370,7 +408,41 @@ const server = createServer(async (req, res) => {
         wall: emptyWall(), messages: [], chat: [{ role: 'coach', text: GREETING }], ...(who ? { account: who.id } : {}),
       }
       save(s)
-      return json(res, 200, { ...view(s), me: me(who) })
+      return json(res, 200, { ...view(s, who), me: me(who) })
+    }
+
+    // /team: a join code for this conversation, as a link and a QR code; whoever types it becomes its first member (AX-ROADMAP-FIRST-00051, 00064)
+    if (req.method === 'POST' && url.pathname === '/api/team') {
+      const { id } = await body(req)
+      const who = whoIs(req), s = validId(id) ? load(id) : null
+      if (!who) return json(res, 401, { error: 'Your email needs its code first.', code: 'login' })
+      if (!owns(s, who) || trashedFor(s, who)) return json(res, 404, { error: 'That conversation has gone.' })
+      if (s.wall.step === DONE) return json(res, 400, { error: 'This conversation is finished: a team joins one that’s still going. Type /new, then /team.' })
+      const claim = !s.account, a = admit({ ...s, account: s.account ?? who.id }, who)
+      if (!a.ok) return json(res, 400, { error: a.error })
+      // a fresh code for a team already made changes nothing the others' screens show
+      if (claim || a.members.length !== (s.members?.length ?? 0)) { s.account ??= who.id; s.members = a.members; save(s, false) }
+      const { code, expires } = team.invite(s.id)
+      const link = `${PUBLIC_URL}/join/${code}`
+      const qr = await QRCode.toString(link, { type: 'svg', margin: 1, color: { dark: '#EFEDE6', light: '#00000000' } })
+      return json(res, 200, { code, link, qr, expires: new Date(expires).toISOString(), ...view(s, who), me: me(who) })
+    }
+
+    // the join link: a teammate who has proven their email becomes a member (AX-ROADMAP-FIRST-00061)
+    if (req.method === 'POST' && url.pathname === '/api/team/join') {
+      const { code } = await body(req)
+      const who = whoIs(req)
+      if (!who) return json(res, 401, { error: 'Your email needs its code first.', code: 'login' })
+      const j = team.join(code, ip)
+      if (!j.ok) return json(res, 400, { error: j.error })
+      const s = load(j.session)
+      if (!s || s.trashed) return json(res, 404, { error: 'That conversation has gone.' })
+      const a = admit(s, who)
+      if (!a.ok) return json(res, 400, { error: a.error })
+      s.members = a.members
+      if (s.trashedFor?.[who.id]) delete s.trashedFor[who.id] // joining again brings it back for them
+      save(s, false)
+      return json(res, 200, { ...view(s, who), me: me(who) })
     }
 
     // /login, and the code step at the end: a code to the email, then the code back
@@ -409,28 +481,31 @@ const server = createServer(async (req, res) => {
         me: me(who),
         conversations: mine(who).sort((a, b) => b.updated.localeCompare(a.updated)).map(s => ({
           id: s.id, product: s.wall.product?.name ?? '', step: s.wall.step, stepName: STEP_NAMES[s.wall.step],
-          updated: s.updated, created: s.created, done: !!s.contact, trashed: s.trashed ?? null,
+          updated: s.updated, created: s.created, done: !!contactOf(s, who), trashed: trashedFor(s, who), team: isTeam(s) ? s.members!.length : 0,
         })),
       })
     }
 
-    // trash or bring back a whole conversation: it is never deleted
+    // trash or bring back a whole conversation: it is never deleted; in a team, only for the member who asks (AX-ROADMAP-FIRST-00057)
     if (req.method === 'POST' && url.pathname === '/api/conversation') {
       const { id, trashed } = await body(req)
       const who = whoIs(req), s = validId(id) ? load(id) : null
-      if (!who || !s || s.account !== who.id) return json(res, 404, { error: 'That conversation isn’t one of yours.' })
-      if (trashed === true) s.trashed ??= new Date().toISOString()
+      if (!who || !s || !(s.account === who.id || isMember(s, who))) return json(res, 404, { error: 'That conversation isn’t one of yours.' })
+      if (isTeam(s)) {
+        if (trashed === true) (s.trashedFor ??= {})[who.id] ??= new Date().toISOString()
+        else if (s.trashedFor) delete s.trashedFor[who.id]
+      } else if (trashed === true) s.trashed ??= new Date().toISOString()
       else delete s.trashed
       save(s)
-      return json(res, 200, { ok: true, trashed: s.trashed ?? null })
+      return json(res, 200, { ok: true, trashed: trashedFor(s, who) })
     }
 
     // the founder trashing or bringing back an item on their wall; the coach hears about it next turn
     if (req.method === 'POST' && url.pathname === '/api/wall') {
       const { id, item, trashed } = await body(req)
-      const s = validId(id) ? load(id) : null
-      if (!owns(s, whoIs(req))) return json(res, 404, { error: 'That conversation has gone.' })
-      if (busy.has(s.id)) return json(res, 409, { error: 'Still thinking about your last answer.' })
+      const who = whoIs(req), s = validId(id) ? load(id) : null
+      if (!owns(s, who)) return json(res, 404, { error: 'That conversation has gone.' })
+      if (lock.has(s.id)) return json(res, 409, { error: lock.who(s.id) ? `${lock.who(s.id)} is answering…` : 'Still thinking about your last answer.', code: 'busy' })
       const r = trashed === true ? trash(s.wall, String(item ?? '')) : untrash(s.wall, String(item ?? ''))
       if (!r.ok) return json(res, 400, { error: r.error })
       settle(s.wall)
@@ -438,28 +513,29 @@ const server = createServer(async (req, res) => {
       stalePlan(s.id)
       save(s)
       if (s.contact) { writeIntake(s.id); if (s.wall.step === DONE) void planFor(s) }
-      return json(res, 200, view(s))
+      return json(res, 200, view(s, who))
     }
 
     if (req.method === 'POST' && url.pathname === '/api/turn') {
       const { id, text } = await body(req)
-      const s = validId(id) ? load(id) : null
-      if (!owns(s, whoIs(req))) return json(res, 404, { error: 'That conversation has gone. Reload to start again.' })
-      if (s.trashed) return json(res, 400, { error: 'This conversation is in your trash. Bring it back from /trash to carry on.' })
+      const who = whoIs(req), s = validId(id) ? load(id) : null
+      if (!owns(s, who)) return json(res, 404, { error: 'That conversation has gone. Reload to start again.' })
+      if (trashedFor(s, who)) return json(res, 400, { error: 'This conversation is in your trash. Bring it back from /trash to carry on.' })
       const said = String(text ?? '').trim().slice(0, MAX_CHARS)
       if (!said) return json(res, 400, { error: 'Say something first.' })
       if (s.wall.step === DONE) return json(res, 400, s.contact ? { error: 'You’re done with this one: type /roadmap to see it, or /new to start another.' } : { error: 'You’re done: leave your name and email for your report.', code: 'contact' })
       if (s.turns >= MAX_TURNS) return json(res, 429, { error: 'That’s as long as one conversation can go. Leave your name and email and we’ll pick it up from your report.', code: 'contact' })
       if (spent() >= DAILY_USD) return json(res, 503, { error: 'The coach is resting for today: it’s free while our tokens last. Come back tomorrow; your conversation is saved.' })
-      if (busy.has(s.id)) return json(res, 409, { error: 'Still thinking about your last answer.' })
-      busy.add(s.id)
+      // in a team the others are told who is answering; a solo founder's turn holds it without a name
+      const took = lock.take(s.id, isTeam(s) && who ? nameOf(who.id) : '')
+      if (!took.ok) return json(res, 409, { error: took.error, code: 'busy', by: took.by ?? null })
       res.writeHead(200, { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store', 'x-accel-buffering': 'no' })
       const send = (e: object) => res.write(JSON.stringify(e) + '\n')
       try {
         s.turns++
-        await turn(s, said, send)
+        await turn(s, said, send, who)
         delete s.notes
-        send({ type: 'end', ...view(s) })
+        send({ type: 'end', ...view(s, who) })
         // the turn may have moved the wall on to the end
         if ((s.wall.step as number) === DONE) void planFor(s)
       } catch (err) {
@@ -470,7 +546,10 @@ const server = createServer(async (req, res) => {
         s.turns--
         send({ type: 'error', error: err instanceof Anthropic.RateLimitError ? 'The coach is busy. Try again in a minute.' : 'Something went wrong on our side. Send that again.' })
       } finally {
-        busy.delete(s.id)
+        lock.give(s.id)
+        // a teammate may have joined, or set it aside for themselves, while the turn ran: keep what they did
+        const now = load(s.id)
+        if (now) Object.assign(s, { members: now.members, trashedFor: now.trashedFor, rev: Math.max(s.rev ?? 0, now.rev ?? 0) })
         save(s)
         res.end()
       }
@@ -482,24 +561,29 @@ const server = createServer(async (req, res) => {
       const { id, name, consent } = await body(req)
       const who = whoIs(req), s = validId(id) ? load(id) : null
       if (!who) return json(res, 401, { error: 'Your email needs its code first.', code: 'login' })
-      if (!s || s.account !== who.id) return json(res, 404, { error: 'That conversation has gone.' })
-      const n = String(name ?? '').trim().slice(0, 120) || who.name || s.contact?.name || ''
+      if (!s || !(s.account === who.id || isMember(s, who))) return json(res, 404, { error: 'That conversation has gone.' })
+      const before = contactOf(s, who)
+      const n = String(name ?? '').trim().slice(0, 120) || who.name || before?.name || ''
       if (!n) return json(res, 400, { error: 'Add your name, for the report.' })
       accounts.account(who.email, n)
-      s.contact = { name: n, email: who.email, consent: consent === true, at: s.contact?.at ?? new Date().toISOString() }
+      const mine: Contact = { name: n, email: who.email, consent: consent === true, at: before?.at ?? new Date().toISOString() }
+      // in a team each member ends for themselves; the first to finish stands for the conversation (AX-ROADMAP-FIRST-00054)
+      if (isTeam(s)) { (s.contacts ??= {})[who.id] = mine; s.contact ??= mine }
+      else s.contact = mine
       save(s)
       writeIntake(s.id)
       // The thinking holds while the flight plan is cut, if it isn't ready yet; past two minutes it shows up on their next visit.
       if (s.wall.step === DONE) await Promise.race([planFor(s), new Promise(r => setTimeout(r, 120_000))])
       void sendMail()
-      return json(res, 200, { ...view(s), me: me(accounts.byId(who.id)) })
+      return json(res, 200, { ...view(s, who), me: me(accounts.byId(who.id)) })
     }
 
-    // The link at the foot of every email: no more of the series.
-    const stop = req.method === 'GET' && url.pathname.match(/^\/stop\/([A-Za-z0-9_-]{22})$/)
+    // The link at the foot of every email: no more of the series. A team member's carries their account, and stops only theirs.
+    const stop = req.method === 'GET' && url.pathname.match(/^\/stop\/([A-Za-z0-9_-]{22})(?:\/([A-Za-z0-9_-]{22}))?$/)
     if (stop) {
       const s = load(stop[1])
-      if (s?.contact) { const log = readMail(s.id); log.stopped ??= new Date().toISOString(); writeMail(s.id, log) }
+      const r = s ? recipients(s).find(r => (r.account ?? null) === (stop[2] ?? null)) : null
+      if (r) { const log = readMail(r.key); log.stopped ??= new Date().toISOString(); writeMail(r.key, log) }
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
       return res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Emails Stopped</title><link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#111111;color:#EFEDE6;font:300 22px/1.5 'IBM Plex Sans',system-ui,sans-serif;padding:16px}p{max-width:30em}small{display:block;margin-top:14px;font:400 13px/1.4 ui-monospace,monospace;color:#A8A8A8}</style>
@@ -521,6 +605,14 @@ function mailNote(id: string) {
   return (sent.length ? `<br>emailed ${sent.join(', ')}` : '') + (log.stopped ? ' · stopped' : '')
 }
 
+/** A team's row on the admin page: every member, each with their own end and emails. */
+function teamCell(s: Session, esc: (s: string) => string) {
+  return `team of ${s.members!.length}` + s.members!.map(id => {
+    const a = accounts.byId(id), c = s.contacts?.[id]
+    return `<br><small>${esc(c?.name ?? a?.name ?? '')} ${esc(a?.email ?? '')}${s.trashedFor?.[id] ? ' · trashed' : ''}${c ? (c.consent ? ' ✓ consent' : ' · finished') : ''}${c ? mailNote(`${s.id}.${id}`) : ''}</small>`
+  }).join('')
+}
+
 function admin(url: URL, res: ServerResponse) {
   const key = Buffer.from(url.searchParams.get('key') ?? '')
   const want = Buffer.from(ADMIN_KEY)
@@ -536,7 +628,7 @@ function admin(url: URL, res: ServerResponse) {
   const k = encodeURIComponent(url.searchParams.get('key')!)
   const rows = readdirSync(join(DATA, 'sessions')).map(f => load(f.slice(0, -5))!).filter(Boolean)
     .sort((a, b) => b.updated.localeCompare(a.updated))
-    .map(s => `<tr><td>${esc(s.updated.slice(0, 16).replace('T', ' '))}</td><td>${esc(s.contact?.name ?? '—')}<br><small>${esc(s.contact?.email ?? (s.account ? accounts.byId(s.account)?.email ?? '' : ''))}${s.account ? ' · account' : ''}${s.trashed ? ' · trashed' : ''}${s.contact?.consent ? ' ✓ consent' : ''}${mailNote(s.id)}</small></td>
+    .map(s => `<tr><td>${esc(s.updated.slice(0, 16).replace('T', ' '))}</td><td>${isTeam(s) ? teamCell(s, esc) : `${esc(s.contact?.name ?? '—')}<br><small>${esc(s.contact?.email ?? (s.account ? accounts.byId(s.account)?.email ?? '' : ''))}${s.account ? ' · account' : ''}${s.trashed ? ' · trashed' : ''}${s.contact?.consent ? ' ✓ consent' : ''}${mailNote(s.id)}</small>`}</td>
       <td>${esc(s.wall.product?.name ?? '—')}</td><td>${s.wall.step} ${STEP_NAMES[s.wall.step]}</td><td>${s.turns}</td><td>$${s.usd.toFixed(2)}</td>
       <td><a href="/admin/session/${s.id}.json?key=${k}">transcript</a>${s.contact ? ` · <a href="/admin/intake/${s.id}.json?key=${k}">intake</a>` : ''}${existsSync(planPath(s.id)) ? ` · <a href="/admin/plan/${s.id}.json?key=${k}">flight plan</a>` : ''}</td></tr>`).join('')
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })

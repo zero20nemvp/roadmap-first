@@ -8,7 +8,7 @@ import { join } from 'node:path'
 export const CODE_MINUTES = 15
 export const CODE_TRIES = 5
 export const CODES_PER_EMAIL = 3 // an hour
-export const CODES_PER_IP = 20 // an hour: a venue's wifi puts a whole room behind one
+export const CODES_PER_IP = 60 // an hour: a venue’s wifi puts a whole room of teams behind one (AX-ROADMAP-FIRST-00065)
 export const LOGIN_DAYS = 365
 export const COOKIE = 'coach_auth'
 

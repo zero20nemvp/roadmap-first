@@ -1,3 +1,4 @@
 2026-10-24T16:47:39Z ground truth declare AX-ROADMAP-FIRST-00050..00057,00061,00062 — db's "Coach /team — Build Spec" doc (2026-10-24) moves team mode from talk to a planned build; declared before any code so the team-mode goal's milestones have constraints to check against
 2026-10-24T16:47:39Z ground truth declare AX-ROADMAP-FIRST-00058..00060 — gaps the spec leaves open once read against the code: accounts are made at the end, CODES_PER_IP is 20/hour per venue IP, and the caps of 00042 are per conversation
 2026-10-24T16:47:39Z ground truth supersede AX-ROADMAP-FIRST-00048 -> 00063 — "answers only to its login" would lock teammates out of a team conversation; the rest of the account decision stands
+2026-10-24T16:51:30Z ground truth supersede AX-ROADMAP-FIRST-00058..00060 -> 00064..00066 — db answered team mode's open questions before the build: /team proves the email on the spot, a venue IP may ask 60 codes an hour, caps stay per conversation
