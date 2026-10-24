@@ -2,3 +2,7 @@
 2026-10-24T16:47:39Z ground truth declare AX-ROADMAP-FIRST-00058..00060 — gaps the spec leaves open once read against the code: accounts are made at the end, CODES_PER_IP is 20/hour per venue IP, and the caps of 00042 are per conversation
 2026-10-24T16:47:39Z ground truth supersede AX-ROADMAP-FIRST-00048 -> 00063 — "answers only to its login" would lock teammates out of a team conversation; the rest of the account decision stands
 2026-10-24T16:51:30Z ground truth supersede AX-ROADMAP-FIRST-00058..00060 -> 00064..00066 — db answered team mode's open questions before the build: /team proves the email on the spot, a venue IP may ask 60 codes an hour, caps stay per conversation
+2026-10-24T18:19:18Z ground truth declare AX-ROADMAP-FIRST-00067 — db wants igniter.zero2one.ee in Igniter's brand with roadmap's functionality; a brand chosen per container keeps one codebase and one deploy instead of a fork
+2026-10-24T18:19:18Z ground truth declare AX-ROADMAP-FIRST-00068 — igniter-coach existed only as an operations fact (a copy of roadmap-coach made 2026-10-24); declared so the brand and the shared deploy rest on it
+2026-10-24T18:19:18Z ground truth declare AX-ROADMAP-FIRST-00069 — db chose English, a typeset wordmark and a quiet zero2one byline over Estonian screens and partner logos, from Igniter's banner
+2026-10-24T18:19:18Z ground truth declare AX-ROADMAP-FIRST-00070,00071 — lifting zero2one's look out of four files risks changing roadmap's look by accident; these hold the zero2one brand to today's render and make a broken brand fail at boot
