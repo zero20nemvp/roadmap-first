@@ -647,6 +647,12 @@ export function mount(opts) {
     say: (text, { echo = '', status = '' } = {}) => show({ echo, text, status }),
     /** Show a reply as the live one, e.g. on resume. */
     resume: async (echo, text) => { live = liveScreen(echo, text); view = 'live'; root.classList.remove('idle'); await show(live); setPhase('answer') },
+    /** Start over: the reply leaves, and the screen is the first one again, with the invitation. */
+    reset: async () => {
+      if (!block.hidden) { block.classList.add('leaving'); await sleep(.18); block.classList.remove('leaving') }
+      live = null; view = 'live'; list = null; tour = null
+      clearPrompt(); hide(); setPhase('rest'); inviting = true; invite()
+    },
     list: showList,
     /** Walk through screens one at a time, e.g. a summary at the end. */
     tour: showTour,

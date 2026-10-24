@@ -32,7 +32,7 @@ const hasWall = () => !!(state && (state.wall.product?.name || counts(state.wall
 
 function status() {
   if (!state) return ''
-  if (state.contacted) return 'enter to see your roadmap' + (state.plan ? ' and flight plan' : '')
+  if (state.contacted) return 'enter to see your roadmap' + (state.plan ? ' and flight plan' : '') + ' · /new to start again'
   if (state.done) return 'the four steps are done · your report is next'
   const c = counts(state.wall)
   const where = state.step === 0 ? 'getting started' : `step ${state.step} of 4 · ${state.steps[state.step].toLowerCase()}`
@@ -116,8 +116,34 @@ function showRoadmap(k) {
   steps.push({ title: 'from here', text: [
     p ? `Ground Zero is the first thing to build: the smallest release that gets one job done for your customer, end to end.${p.releases[0]?.price ? ' And they already pay for a way round it.' : ''}` : 'Your flight plan, from Ground Zero, is being cut by your facilitator.',
     state.consent ? 'Your full report is coming by email: every story, and the flight plan, tidied by your facilitator.' : 'Your facilitator has all of this, and turns it into your full report.',
+    'Another product, or another customer? Type /new to start a new conversation.',
   ].join('\n\n') })
-  k.tour(steps, { title: 'your roadmap', done: k => k.note('said', 'enter to see it again') })
+  k.tour(steps, { title: 'your roadmap', done: k => k.note('said', 'enter to see it again · /new to start a new conversation') })
+}
+
+/* ---------- starting again ---------- */
+let restarting = false
+
+/** /new: straight away once they're done; mid-way, one screen asks first. */
+async function askNew(k) {
+  if (state?.contacted || !(state?.chat.length > 1)) return startNew(k)
+  restarting = true
+  await k.say('Start a new conversation? This one stays with your facilitator, but you can’t come back to it from here.', { status: 'start again · enter or yes · esc or no' })
+}
+
+async function keepThis(k) {
+  restarting = false
+  const last = exchanges().at(-1)
+  await k.resume(last.echo, last.text)
+  if (state.done && !state.contacted) beginContact()
+}
+
+async function startNew(k) {
+  restarting = false
+  try { state = await post('/api/session', {}) } catch (e) { return k.note('err', e.message) }
+  try { localStorage.setItem('coach-session', state.id) } catch {}
+  contact = null
+  await k.reset()
 }
 
 /* ---------- the end: name, email, consent, one screen each ---------- */
@@ -166,14 +192,24 @@ const k = mount({
   commands: [
     { name: '/wall', hint: 'what you’ve said so far, step by step', run: openWall },
     { name: '/roadmap', hint: 'your roadmap and flight plan, once you’re done', run: k => state?.contacted ? showRoadmap(k) : k.note('said', 'Your roadmap is ready once the four steps are done and you’ve left your email.') },
+    { name: '/new', hint: 'start a new conversation', run: askNew },
   ],
   intercept: async text => {
+    if (restarting) {
+      const t = text.toLowerCase()
+      if (t && !/^(y|n)/.test(t)) { k.note('err', 'Yes or no: enter for yes, escape for no.'); return true }
+      k.clear()
+      await (!t || t.startsWith('y') ? startNew(k) : keepThis(k))
+      return true
+    }
     if (contact) { await contactStep(text); return true }
-    if (state?.contacted) { if (text) k.note('said', 'That’s all four steps. Press enter to see your roadmap again.'); else showRoadmap(k); return true }
+    if (state?.contacted) { if (text) k.note('said', 'You’re done with this one. Press enter to see your roadmap again, or type /new to start a new conversation.'); else showRoadmap(k); return true }
     if (state?.done && text) { beginContact(); await contactStep(text); return true }
     return false
   },
-  escape: () => { if (contact?.stage === 'consent') { finish(false); return true } return false },
+  escape: () => {
+    if (restarting) { keepThis(k); return true }
+    if (contact?.stage === 'consent') { finish(false); return true } return false },
   after: () => { if (state.done && !state.contacted && !contact) beginContact() },
   onError: e => { if (e.code === 'contact' && !contact) beginContact() },
 })
