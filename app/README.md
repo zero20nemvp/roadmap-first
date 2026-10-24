@@ -60,3 +60,5 @@ Cost is estimated from each response's token usage at Claude Opus 5.5 prices. Th
 - **Proxy:** the host's Caddy, `/etc/caddy/roadmap-coach.caddy` (imported from the Caddyfile), with `flush_interval -1` so replies stream.
 
 Ship a change with `app/deploy.sh` from the repo root.
+
+A second coach, `igniter-coach` (igniter.zero2one.ee, `/etc/caddy/igniter-coach.caddy`), began as a copy of this container with empty data, its own `PUBLIC_URL` and `ADMIN_KEY`. Until it diverges, `app/deploy.sh` ships the same code to both; `COACH_TARGETS=roadmap-coach app/deploy.sh` ships to one. When igniter goes its own way, take it out of the script's default list.
