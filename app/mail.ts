@@ -86,3 +86,13 @@ export function facilitatorEmail(to: string, f: { name: string; email: string; c
   ].join('\n\n')
   return { to, subject: `Roadmap finished: ${f.product || f.name}`, text: toText(md), html: toHtml(md) }
 }
+
+/** The login code: short and plain, with nothing in it worth forwarding. */
+export function codeEmail(to: string, code: string): Email {
+  const md = [
+    `Your code for the roadmap-first coach: **${code}**`,
+    'Type or paste it where the coach asked for it. It works once, for the next 15 minutes.',
+    'If you didn’t ask for it, ignore this email: nothing happens without the code.',
+  ].join('\n\n')
+  return { to, subject: `${code} is your roadmap-first code`, text: toText(md), html: toHtml(md) }
+}

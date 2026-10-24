@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { test } from 'node:test'
-import { due, facilitatorEmail, parseTemplate, seriesEmail, SERIES, toHtml } from './mail.ts'
+import { codeEmail, due, facilitatorEmail, parseTemplate, seriesEmail, SERIES, toHtml } from './mail.ts'
 
 const DAY = 86_400_000
 const at = (d: number) => new Date(Date.UTC(2026, 9, 24) + d * DAY).toISOString()
@@ -42,4 +42,11 @@ test('what founders wrote is escaped in HTML', () => {
   assert.match(toHtml('**<script>x</script>**'), /<b>&lt;script&gt;x&lt;\/script&gt;<\/b>/)
   const f = facilitatorEmail('db@zero2one.ee', { name: '<b>Ada</b>', email: 'ada@example.com', consent: true, product: 'Doorlist', reportLink: 'https://x/r', adminLink: 'https://x/admin', hasPlan: true })
   assert.doesNotMatch(f.html, /<b><b>Ada/)
+})
+
+test('the login code email carries the code in its subject and body', () => {
+  const e = codeEmail('ada@example.com', '042917')
+  assert.match(e.subject, /^042917 /)
+  assert.match(e.text, /042917/)
+  assert.match(e.html, /<b>042917<\/b>/)
 })
