@@ -3,45 +3,49 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
-<meta name="theme-color" content="#111111">
+{{brand_head}}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<title>Roadmap-first coach · zero2one</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/kiosk.css">
 <style>
-html,body{height:100%;margin:0;overflow:hidden;background:#111111}
-/* zero2one's wordmark, quiet in the corner: it lights on hover and leads to zero2one.ee */
+/* The brand (app/brands/<BRAND>, filled in by server.ts) gives the ground, the accent and the mark */
+html,body{height:100%;margin:0;overflow:hidden;background:var(--brand-ground)}
+/* The brand's mark, quiet in the corner: it lights on hover and, when it has a link, leads there */
 .mark{position:fixed;top:max(18px,env(safe-area-inset-top));left:22px;z-index:5;opacity:.42;transition:opacity .3s ease}
 .mark:hover,.mark:focus-visible{opacity:1}
 .mark img{height:30px;width:auto;display:block}
-@media (max-width:520px){.mark{left:16px}.mark img{height:24px}}
+/* a mark set in type: the brand's word, in its font, filled with its gradient */
+.mark .word{display:block;font:900 22px/1 var(--brand-mark-font),system-ui,sans-serif;letter-spacing:.01em;background:linear-gradient(180deg,var(--brand-mark-a),var(--brand-mark-b));-webkit-background-clip:text;background-clip:text;color:transparent}
+.mark small{display:block;margin-top:5px;font:400 10px/1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.06em;color:var(--brand-text)}
+@media (max-width:520px){.mark{left:16px}.mark img{height:24px}.mark .word{font-size:18px}}
 /* The roadmap as one long page, rising over the kiosk; back and Escape return to the flow */
 .roadmap{position:fixed;inset:0;z-index:50;background:#0E1116;opacity:0;transform:translateY(28px) scale(.985);transition:opacity .45s cubic-bezier(.25,1,.35,1),transform .55s cubic-bezier(.25,1,.35,1)}
 .roadmap.open{opacity:1;transform:none}
 .roadmap iframe{border:0;width:100%;height:100%;display:block}
 .roadmap nav{position:fixed;top:16px;left:16px;right:16px;display:flex;justify-content:space-between;gap:12px;pointer-events:none}
-.roadmap nav>*{pointer-events:auto;font:400 12px/1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.04em;color:#EFEDE6;background:rgba(17,17,17,.82);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:10px 14px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);cursor:pointer;text-decoration:none}
+.roadmap nav>*{pointer-events:auto;font:400 12px/1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.04em;color:var(--brand-text);background:rgba(17,17,17,.82);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:10px 14px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);cursor:pointer;text-decoration:none}
 .roadmap nav>*:hover{border-color:rgba(230,138,92,.6)}
 @media (max-width:520px){.roadmap nav a{display:none}}
 /* /team: the join link as a QR code, over the kiosk, for the room to scan */
-.team{position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:24px;box-sizing:border-box;background:rgba(10,10,10,.94);color:#EFEDE6;font:400 17px/1.5 Inter,system-ui,sans-serif;text-align:center;opacity:0;transition:opacity .35s ease}
+.team{position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:24px;box-sizing:border-box;background:rgba(10,10,10,.94);color:var(--brand-text);font:400 17px/1.5 Inter,system-ui,sans-serif;text-align:center;opacity:0;transition:opacity .35s ease}
 .team.open{opacity:1}
 .team svg{width:min(52vh,72vw);height:auto;display:block;margin:0 auto 22px}
-.team .link{font:400 15px/1.4 'JetBrains Mono',ui-monospace,monospace;color:#E68A5C;word-break:break-all}
+.team .link{font:400 15px/1.4 'JetBrains Mono',ui-monospace,monospace;color:var(--brand-accent);word-break:break-all}
 .team .code{font:600 30px/1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.18em;margin:14px 0 6px}
 .team small{display:block;margin-top:18px;color:#A8A8A8;font-size:13px}
 </style>
 </head>
 <body>
-<a class="mark" href="https://zero2one.ee" target="_blank" rel="noopener" aria-label="zero2one"><img src="/zero2one.svg" alt="zero2one"></a>
+{{brand_mark}}
 <script>
 // Phones aren't supported yet: say so, and don't start the coach. A touch screen narrower than 600px counts as a phone.
 // A teammate joining a team by its link may use a phone, and keeps it once they've joined (AX-ROADMAP-FIRST-00050).
-window.COACH_NAME = {{coach_name}} // filled in by server.ts from COACH_NAME
+window.BRAND = {{brand}} // filled in by server.ts from the brand: name, hint, theme, page colours
+window.COACH_NAME = BRAND.name
 window.PHONE = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600
   && !location.pathname.startsWith('/join/') && !(() => { try { return localStorage.getItem('coach-team') } catch {} })()
-if (window.PHONE) document.write('<div style="position:fixed;inset:0;display:flex;align-items:center;padding:32px;box-sizing:border-box;color:#EFEDE6;font:400 19px/1.5 Inter,system-ui,sans-serif"><div><p style="margin:0 0 14px;font-weight:600">' + window.COACH_NAME + ' runs on a laptop or desktop.</p><p style="margin:0 0 14px;opacity:.75">It doesn’t work on phones yet. Open this link on your computer to start:</p><p style="margin:0;font-family:\'JetBrains Mono\',ui-monospace,monospace;color:#E68A5C">' + location.host + '</p></div></div>')
+if (window.PHONE) document.write('<div style="position:fixed;inset:0;display:flex;align-items:center;padding:32px;box-sizing:border-box;color:' + BRAND.page.text + ';font:400 19px/1.5 Inter,system-ui,sans-serif"><div><p style="margin:0 0 14px;font-weight:600">' + window.COACH_NAME + ' runs on a laptop or desktop.</p><p style="margin:0 0 14px;opacity:.75">It doesn’t work on phones yet. Open this link on your computer to start:</p><p style="margin:0;font-family:\'JetBrains Mono\',ui-monospace,monospace;color:' + BRAND.page.accent + '">' + location.host + '</p></div></div>')
 </script>
 <script type="module">
 // The coach on the kiosk kit (kiosk.js, from ~/Code/kiosk-pattern): this file is only what the coach says and means.
@@ -504,11 +508,11 @@ async function finish(consent) {
 /* ---------- the kiosk ---------- */
 const k = mount({
   invite: 'What are you building, and who is it for?',
-  hint: 'roadmap-first coach · one question at a time · the answers are yours',
+  hint: BRAND.hint,
   // the send dims the screen and grows the first ball, the landing's flash the other way round
   animation: { send: 'dim' },
-  // zero2one's colours (zero2one.ee): near-black ground, the coral accent for your words and the thinking, warm white text
-  theme: { ground: '#141414', deep: '#050505', text: '#EFEDE6', dim: '#A8A8A8', faint: '#6E6E6E', mine: '#E68A5C', rule: '#2D2D2D', vignette: '#000000', flash: '#FFF4EC', shade: '#000000' },
+  // the brand's colours: zero2one's near-black ground and coral accent, or Igniter's magenta
+  theme: BRAND.theme,
   ask, status, history: exchanges, echo: echoLine,
   statusAction: () => state?.contacted && state.done ? () => showRoadmap(k) : hasWall() ? () => openWall(k) : null,
   commands: [

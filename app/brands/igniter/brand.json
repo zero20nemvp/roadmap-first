@@ -1,0 +1,11 @@
+{
+  "name": "Igniter",
+  "title": "Igniter coach · roadmap-first",
+  "hint": "igniter coach · one question at a time · the answers are yours",
+  "page": { "ground": "#0B0507", "text": "#F5EFF1", "accent": "#E0117D", "ember": "#C8102E" },
+  "theme": { "ground": "#120A0D", "deep": "#030102", "text": "#F5EFF1", "dim": "#B3A3A8", "faint": "#77666B", "mine": "#E0117D", "rule": "#2E1A20", "vignette": "#000000", "flash": "#FFE8F2", "shade": "#000000" },
+  "mark": { "text": "IGNITER", "font": "Montserrat", "fonts": "https://fonts.googleapis.com/css2?family=Montserrat:wght@900&display=swap", "gradient": ["#E0117D", "#C8102E"], "href": "", "label": "Igniter" },
+  "byline": "with zero2one",
+  "roadmap": { "accent": "#E0117D", "accentLight": "#B00C62", "bg": "#0B0507", "line": "<b>Igniter</b> · roadmap-first", "footer": "Igniter · roadmap-first coach · with zero2one" },
+  "email": { "from": "Igniter <noreply@zero2one.ee>", "coach": "the Igniter coach", "code": "Igniter" }
+}

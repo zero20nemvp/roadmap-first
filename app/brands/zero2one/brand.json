@@ -1,0 +1,11 @@
+{
+  "name": "Roadmap First",
+  "title": "Roadmap-first coach · zero2one",
+  "hint": "roadmap-first coach · one question at a time · the answers are yours",
+  "page": { "ground": "#111111", "text": "#EFEDE6", "accent": "#E68A5C" },
+  "theme": { "ground": "#141414", "deep": "#050505", "text": "#EFEDE6", "dim": "#A8A8A8", "faint": "#6E6E6E", "mine": "#E68A5C", "rule": "#2D2D2D", "vignette": "#000000", "flash": "#FFF4EC", "shade": "#000000" },
+  "mark": { "svg": "mark.svg", "href": "https://zero2one.ee", "label": "zero2one" },
+  "byline": "",
+  "roadmap": { "accent": "#E68A5C", "accentLight": "#C15F3C", "bg": "#111111", "line": "zero<b>2</b>one · roadmap-first", "footer": "Made with 021 · roadmap-first coach" },
+  "email": { "from": "Roadmap First <noreply@zero2one.ee>", "coach": "the roadmap-first coach", "code": "roadmap-first" }
+}

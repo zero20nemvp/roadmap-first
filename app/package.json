@@ -5,7 +5,7 @@
   "description": "The v2 workshop's Socratic coach: problems, workarounds, jobs and features, in a browser",
   "scripts": {
     "start": "node server.ts",
-    "test": "node --test coach.spec.ts mail.spec.ts auth.spec.ts team.spec.ts"
+    "test": "node --test coach.spec.ts mail.spec.ts auth.spec.ts team.spec.ts brand.spec.ts"
   },
   "engines": {
     "node": ">=24"

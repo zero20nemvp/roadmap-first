@@ -42,7 +42,7 @@ The coach sends its own email through the `smtp` container's relay (Postfix at `
 - **To the facilitator** (`FACILITATOR_EMAIL`): one note per finished conversation, with who, what, whether they said yes, and their roadmap link.
 - **To founders who said yes:** the four emails in `docs/emails`. Email 01 goes as soon as the flight plan is cut and links their roadmap website; 02, 03 and 04 follow 3, 4 and 4 days after the one before. Each one ends with a link (`/stop/<id>`) that stops the rest.
 - Only conversations finished after email was switched on (`data/mail/since`) get any, so nobody from before is surprised. What each founder has been sent is in `data/mail/<id>.json` and on the admin page.
-- Settings in `/etc/roadmap-coach.env`: `SMTP_HOST` (no host, no email), `SMTP_PORT`, `FACILITATOR_EMAIL`, and optionally `FACILITATOR` (the name the emails are signed with, default Delaney), `MAIL_FROM`, `PUBLIC_URL`, `COACH_NAME` (what the page calls the coach, default Roadmap First), `BOOKING_LINK` (without it, email 04 asks them to reply to book time).
+- Settings in `/etc/roadmap-coach.env`: `SMTP_HOST` (no host, no email), `SMTP_PORT`, `FACILITATOR_EMAIL`, and optionally `FACILITATOR` (the name the emails are signed with, default Delaney), `MAIL_FROM`, `PUBLIC_URL`, `BRAND` (the folder under `brands/` this coach wears, default zero2one; see Brands), `COACH_NAME` (what the page calls the coach, default the brand's name), `CODE_FROM` (default the brand's sender), `BOOKING_LINK` (without it, email 04 asks them to reply to book time).
 - The relay accepts `db@zero2one.ee` and `noreply@zero2one.ee` as senders: the series comes from `db@`, so replies come back there; login codes come from `noreply@`.
 
 ## Limits (it's free, so it's capped)
@@ -61,6 +61,22 @@ Cost is estimated from each response's token usage at Claude Opus 5.5 prices. Th
 
 `/admin?key=<ADMIN_KEY>` lists every conversation with its step, turns, cost, transcript, and, once the founder has left an email, the intake to feed the report run (`skills/report`), and the flight plan they were shown.
 
+## Brands
+Each coach wears one brand and does exactly the same things (AX-ROADMAP-FIRST-00067 to 00071). A brand is a folder, `brands/<name>/`, chosen per container by `BRAND` in `/etc/roadmap-coach.env`: `zero2one` (roadmap.zero2one.ee, the default) and `igniter` (igniter.zero2one.ee).
+
+- `brand.json`:
+  - `name`, `title`, and the `hint` under the prompt
+  - `page`: the ground, text and accent around the kiosk, and an optional `ember` that tints the kiosk's lower corner glow
+  - `theme`: the kiosk's colours, as `kiosk.js` names them
+  - `mark`: an `svg` file in the folder, or a `text` set in a Google `font` with a two-colour `gradient`; with `href` and `label`
+  - `byline`: a small line under the mark, e.g. "with zero2one"
+  - `roadmap`: the roadmap page's dark and light accents, dark ground, top line (HTML) and footer
+  - `email`: the login code's sender, and what the coach and the code are called in it
+- `favicon.svg` is the tab icon.
+- `brand.ts` loads and checks the brand at boot, so a missing or malformed field stops the coach before anyone sees it. It also fills the page's `{{brand_head}}`, `{{brand_mark}}` and `{{brand}}` (`window.BRAND`). `web/roadmap.ts` takes the `roadmap` part, and callers without a brand get zero2one's.
+- Series emails 01–04 aren't branded: "roadmap-first" is the method's name.
+- `brand.spec.ts` holds the zero2one brand to exactly the page, roadmap page and login email the coach had before brands. A new brand is a new folder, plus a test like igniter's.
+
 ## Where it runs
 
 - **Container:** `roadmap-coach` on the Hetzner host (`ssh hetzner`), Ubuntu 24.04, Node 24, user `coach`.
@@ -71,4 +87,4 @@ Cost is estimated from each response's token usage at Claude Opus 5.5 prices. Th
 
 Ship a change with `app/deploy.sh` from the repo root.
 
-A second coach, `igniter-coach` (igniter.zero2one.ee, `/etc/caddy/igniter-coach.caddy`), began as a copy of this container with empty data, its own `PUBLIC_URL` and `ADMIN_KEY`. Until it diverges, `app/deploy.sh` ships the same code to both; `COACH_TARGETS=roadmap-coach app/deploy.sh` ships to one. When igniter goes its own way, take it out of the script's default list.
+A second coach, `igniter-coach` (igniter.zero2one.ee, `/etc/caddy/igniter-coach.caddy`), began as a copy of this container with empty data, its own `PUBLIC_URL` and `ADMIN_KEY`, and wears `BRAND=igniter`. Until it diverges, `app/deploy.sh` ships the same code to both; `COACH_TARGETS=roadmap-coach app/deploy.sh` ships to one. When igniter goes its own way, take it out of the script's default list.

@@ -1,0 +1,11 @@
+<!-- Igniter's tab icon: a white I on its magenta-to-crimson -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#E0117D" offset="0%"/>
+      <stop stop-color="#C8102E" offset="100%"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#g)"/>
+  <rect x="100" y="52" width="56" height="152" rx="6" fill="#FFFFFF"/>
+</svg>

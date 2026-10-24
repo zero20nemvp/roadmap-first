@@ -15,6 +15,7 @@ import { type Account, auth, clearCookie, normalEmail, readCookie, setCookie, va
 import { apply, CUT_SCHEMA, CUT_SYSTEM, cutPrompt, DONE, emptyWall, fromCut, GREETING, groundZero, live, migrate, settle, STEP_NAMES, summary, SYSTEM, toReport, TOOLS, trash, untrash, type Cut, type Wall } from './coach.ts'
 import { codeEmail, due, type Email, facilitatorEmail, type MailLog, parseTemplate, seriesEmail, SERIES, type Template } from './mail.ts'
 import QRCode from 'qrcode'
+import { brandPage, loadBrand } from './brand.ts'
 import { admit, contactOf, type Contact, isMember, isTeam, joins, owns, recipients, spoken, TEAM_NOTE, trashedFor, turns, unchanged, validCode, version } from './team.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -36,26 +37,26 @@ const FACILITATOR = process.env.FACILITATOR ?? 'Delaney'
 const FACILITATOR_EMAIL = process.env.FACILITATOR_EMAIL ?? 'db@zero2one.ee'
 const MAIL_FROM = process.env.MAIL_FROM ?? `${FACILITATOR} <${FACILITATOR_EMAIL}>`
 const PUBLIC_URL = (process.env.PUBLIC_URL ?? 'https://roadmap.zero2one.ee').replace(/\/$/, '')
+// The coach's brand, one per container (AX-ROADMAP-FIRST-00067): brands/<BRAND>; a broken one stops it here, at boot.
+const BRAND = loadBrand(join(here, 'brands'), process.env.BRAND ?? 'zero2one')
 // login codes come from an address nobody answers
-const CODE_FROM = process.env.CODE_FROM ?? 'Roadmap First <noreply@zero2one.ee>'
+const CODE_FROM = process.env.CODE_FROM ?? BRAND.email.from
 const SECURE = PUBLIC_URL.startsWith('https:')
 const BOOKING_LINK = process.env.BOOKING_LINK ?? ''
-// what this coach calls itself on the page; each container sets its own
-const COACH_NAME = process.env.COACH_NAME ?? 'Roadmap First'
+// what this coach calls itself on the page; the brand's name unless the container says otherwise
+const COACH_NAME = process.env.COACH_NAME ?? BRAND.name
 
 for (const d of ['sessions', 'intakes', 'plans', 'usage', 'mail']) mkdirSync(join(DATA, d), { recursive: true })
 const client = new Anthropic()
 const accounts = auth(DATA)
-// the name goes into a script as a JSON string, with < escaped so it can't close the tag
-const page = readFileSync(join(here, 'public', 'index.html'), 'utf8')
-  .replace('{{coach_name}}', JSON.stringify(COACH_NAME).replace(/</g, '\\u003c'))
+const page = brandPage(readFileSync(join(here, 'public', 'index.html'), 'utf8'), BRAND, COACH_NAME)
 // The kiosk kit (~/Code/kiosk-pattern), vendored beside the page
 const assets: Record<string, [string, Buffer]> = {
   '/kiosk.js': ['text/javascript; charset=utf-8', readFileSync(join(here, 'public', 'kiosk.js'))],
   '/kiosk.css': ['text/css; charset=utf-8', readFileSync(join(here, 'public', 'kiosk.css'))],
-  // zero2one's mark, from zero2one.ee: the tab icon, and the wordmark in the kiosk's corner
-  '/favicon.svg': ['image/svg+xml', readFileSync(join(here, 'public', 'favicon.svg'))],
-  '/zero2one.svg': ['image/svg+xml', readFileSync(join(here, 'public', 'zero2one.svg'))],
+  // the brand's tab icon, and its mark in the kiosk's corner when it is a drawing
+  '/favicon.svg': ['image/svg+xml', BRAND.favicon],
+  ...(BRAND.markSvg ? { '/brand-mark.svg': ['image/svg+xml', BRAND.markSvg] as [string, Buffer] } : {}),
   // the roadmap website's libraries (three.js, GSAP, ScrollTrigger, d3), as one cached script
   '/roadmap-vendor.js': ['text/javascript; charset=utf-8', Buffer.from(['three.min.js', 'gsap.min.js', 'ScrollTrigger.min.js', 'd3.min.js']
     .map(f => readFileSync(join(here, '..', 'assets', 'vendor', f), 'utf8')).join('\n;\n'))],
@@ -377,7 +378,7 @@ const server = createServer(async (req, res) => {
       const generated = new Date(s.contact.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-frame-options': 'SAMEORIGIN', 'referrer-policy': 'no-referrer' })
       return res.end(renderRoadmap(roadmapTemplate, { ...plan, founder: { name: founderOf(s) } },
-        { unknowns: live(s.wall).unknowns, argued: arguedRows(s.wall), chat: s.chat, generated }, '<script src="/roadmap-vendor.js"></script>'))
+        { unknowns: live(s.wall).unknowns, argued: arguedRows(s.wall), chat: s.chat, generated }, '<script src="/roadmap-vendor.js"></script>', BRAND.roadmap))
     }
 
     // a team's screens, every 3 seconds: the view only if something changed since the one they have (AX-ROADMAP-FIRST-00052)
@@ -450,7 +451,7 @@ const server = createServer(async (req, res) => {
       const email = normalEmail((await body(req)).email)
       const r = accounts.start(email, ip)
       if (!r.ok) return json(res, 400, { error: r.error })
-      if (transport) await transport.sendMail({ from: CODE_FROM, to: email, ...codeEmail(email, r.code) })
+      if (transport) await transport.sendMail({ from: CODE_FROM, to: email, ...codeEmail(email, r.code, BRAND.email) })
       else console.log(`login code for ${email}: ${r.code}`) // no relay: running locally
       return json(res, 200, { ok: true })
     }
@@ -586,7 +587,7 @@ const server = createServer(async (req, res) => {
       if (r) { const log = readMail(r.key); log.stopped ??= new Date().toISOString(); writeMail(r.key, log) }
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
       return res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Emails Stopped</title><link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#111111;color:#EFEDE6;font:300 22px/1.5 'IBM Plex Sans',system-ui,sans-serif;padding:16px}p{max-width:30em}small{display:block;margin-top:14px;font:400 13px/1.4 ui-monospace,monospace;color:#A8A8A8}</style>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:${BRAND.page.ground};color:${BRAND.page.text};font:300 22px/1.5 'IBM Plex Sans',system-ui,sans-serif;padding:16px}p{max-width:30em}small{display:block;margin-top:14px;font:400 13px/1.4 ui-monospace,monospace;color:#A8A8A8}</style>
 <p>Done: you won’t get any more of these emails.<small>Your roadmap is still yours at the link you have.</small></p>`)
     }
 

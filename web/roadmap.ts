@@ -112,13 +112,23 @@ export function roadmapView(r: Report, x: RoadmapExtras = {}) {
 
 const escapeHtml = (t: string) => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
 
+/** The page's brand: its accents (dark and light), dark ground, the line at the top (trusted HTML) and the footer. */
+export type RoadmapBrand = { accent: string; accentLight: string; bg: string; line: string; footer: string }
+/** zero2one's, as the page always was: what the report run and every caller without a brand get. */
+export const ZERO2ONE_ROADMAP: RoadmapBrand = { accent: '#E68A5C', accentLight: '#C15F3C', bg: '#111111', line: 'zero<b>2</b>one · roadmap-first', footer: 'Made with 021 · roadmap-first coach' }
+
 /** Fills the roadmap template. vendor is either the libraries inlined (works offline) or script tags that load them. */
-export function renderRoadmap(template: string, r: Report, x: RoadmapExtras, vendor: string): string {
+export function renderRoadmap(template: string, r: Report, x: RoadmapExtras, vendor: string, brand: RoadmapBrand = ZERO2ONE_ROADMAP): string {
   const data = JSON.stringify(roadmapView(r, x)).replace(/</g, '\\u003c')
   return template
     .replace('<!--__021_VENDOR__-->', () => vendor)
     .replace('"__021_DATA__"', () => data)
     .replace(/__021_TITLE__/g, () => escapeHtml(r.product.name || 'Your'))
+    .replace(/__021_ACCENT_LIGHT__/g, () => brand.accentLight)
+    .replace(/__021_ACCENT__/g, () => brand.accent)
+    .replace(/__021_BG__/g, () => brand.bg)
+    .replace(/__021_BRAND_LINE__/g, () => brand.line)
+    .replace(/__021_FOOTER__/g, () => escapeHtml(brand.footer))
 }
 
 /** The libraries as one inline script, for a page that has to work offline. */
