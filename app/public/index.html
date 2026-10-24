@@ -24,14 +24,23 @@ html,body{height:100%;margin:0;overflow:hidden;background:#111111}
 .roadmap nav>*{pointer-events:auto;font:400 12px/1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.04em;color:#EFEDE6;background:rgba(17,17,17,.82);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:10px 14px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);cursor:pointer;text-decoration:none}
 .roadmap nav>*:hover{border-color:rgba(230,138,92,.6)}
 @media (max-width:520px){.roadmap nav a{display:none}}
+/* /team: the join link as a QR code, over the kiosk, for the room to scan */
+.team{position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:24px;box-sizing:border-box;background:rgba(10,10,10,.94);color:#EFEDE6;font:400 17px/1.5 Inter,system-ui,sans-serif;text-align:center;opacity:0;transition:opacity .35s ease}
+.team.open{opacity:1}
+.team svg{width:min(52vh,72vw);height:auto;display:block;margin:0 auto 22px}
+.team .link{font:400 15px/1.4 'JetBrains Mono',ui-monospace,monospace;color:#E68A5C;word-break:break-all}
+.team .code{font:600 30px/1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.18em;margin:14px 0 6px}
+.team small{display:block;margin-top:18px;color:#A8A8A8;font-size:13px}
 </style>
 </head>
 <body>
 <a class="mark" href="https://zero2one.ee" target="_blank" rel="noopener" aria-label="zero2one"><img src="/zero2one.svg" alt="zero2one"></a>
 <script>
 // Phones aren't supported yet: say so, and don't start the coach. A touch screen narrower than 600px counts as a phone.
+// A teammate joining a team by its link may use a phone, and keeps it once they've joined (AX-ROADMAP-FIRST-00050).
 window.COACH_NAME = {{coach_name}} // filled in by server.ts from COACH_NAME
 window.PHONE = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600
+  && !location.pathname.startsWith('/join/') && !(() => { try { return localStorage.getItem('coach-team') } catch {} })()
 if (window.PHONE) document.write('<div style="position:fixed;inset:0;display:flex;align-items:center;padding:32px;box-sizing:border-box;color:#EFEDE6;font:400 19px/1.5 Inter,system-ui,sans-serif"><div><p style="margin:0 0 14px;font-weight:600">' + window.COACH_NAME + ' runs on a laptop or desktop.</p><p style="margin:0 0 14px;opacity:.75">It doesn’t work on phones yet. Open this link on your computer to start:</p><p style="margin:0;font-family:\'JetBrains Mono\',ui-monospace,monospace;color:#E68A5C">' + location.host + '</p></div></div>')
 </script>
 <script type="module">
@@ -39,10 +48,12 @@ if (window.PHONE) document.write('<div style="position:fixed;inset:0;display:fle
 import { mount } from '/kiosk.js'
 if (window.PHONE) throw new Error('phones are not supported yet')
 
-let state = null   // the server's view: id, step, steps, wall, chat, done, contacted, trashed
+let state = null   // the server's view: id, step, steps, wall, chat, done, contacted, trashed, team, answering, v
 let contact = null // the end: { stage: 'name' | 'email' | 'code' | 'consent', name, email }
 let me = null      // the account this browser is logged in as: { email, name }
-let login = null   // /login: { stage: 'email' | 'code', email }
+let login = null   // /login, and the email before /team or a join: { stage: 'name' | 'email' | 'code', email, name, then }
+// a team's join link: /join/<code>
+const joinCode = location.pathname.match(/^\/join\/([A-Za-z0-9]{6})$/)?.[1] ?? null
 
 /** This browser's id: the server counts new conversations per browser, not per venue wifi. */
 const browser = (() => {
@@ -81,8 +92,9 @@ function status() {
   const c = counts(state.wall)
   const gz = argued()
   const where = state.step === 0 ? 'getting started' : `step ${state.step} of 5 · ${state.steps[state.step].toLowerCase()}`
-  if (state.step === 5) return [where, gz.job ? `${gz.job.id} · ${gz.kept.length} kept · ${gz.later.length} later${gz.open.length ? ` · ${gz.open.length} to argue` : ''}` : 'which job first?', '/wall'].join(' · ')
-  return [where, c, hasWall() ? '/wall' : ''].filter(Boolean).join(' · ')
+  const team = state.team?.length > 1 ? `team · ${state.team.join(', ')}` : ''
+  if (state.step === 5) return [team, where, gz.job ? `${gz.job.id} · ${gz.kept.length} kept · ${gz.later.length} later${gz.open.length ? ` · ${gz.open.length} to argue` : ''}` : 'which job first?', '/wall'].filter(Boolean).join(' · ')
+  return [team, where, c, hasWall() ? '/wall' : ''].filter(Boolean).join(' · ')
 }
 
 /** One founder turn: the reply streams in as NDJSON while the balls bounce. */
@@ -105,11 +117,17 @@ async function ask(text, out) {
   }
 }
 
+/** Each reply with the founder line it answers; in a team, a teammate's line carries their name between markers. */
+const MARK = '⁣' // invisible: it never shows, and nobody types it
+const myName = () => me && (me.name || me.email.split('@')[0])
 function exchanges() {
   const c = state?.chat || [], out = []
-  c.forEach((m, i) => { if (m.role === 'coach') out.push({ echo: c[i - 1]?.role === 'founder' ? c[i - 1].text : '', text: m.text }) })
+  const said = m => m?.role !== 'founder' ? '' : m.by && m.by !== myName() ? `${MARK}${m.by}${MARK}${m.text}` : m.text
+  c.forEach((m, i) => { if (m.role === 'coach') out.push({ echo: said(c[i - 1]), text: m.text }) })
   return out
 }
+/** The quiet line above a reply: "you · …", or the teammate who said it. */
+const echoLine = echo => { const m = echo.match(new RegExp(`^${MARK}([^${MARK}]*)${MARK}([\\s\\S]*)$`)); return m ? `${m[1]}  ·  ${m[2].replace(/\s+/g, ' ')}` : null }
 
 /* ---------- the wall ---------- */
 function openWall(k, at = 0) {
@@ -201,18 +219,96 @@ async function startLogin(k) {
 }
 
 async function loginStep(k, text) {
-  if (login.stage === 'email') {
-    try { await post('/api/login/start', { email: text }) } catch (e) { return k.note('err', e.message) }
-    login = { stage: 'code', email: text }; k.clear()
-    await k.say(`We’ve sent a code to ${text}. Type it here.`, { echo: text, status: 'log in · 2 of 2 · esc to change the email' })
+  // before /team or a join: the room calls each other by name, so the name comes first
+  if (login.stage === 'name') {
+    login = { ...login, stage: 'email', name: text.slice(0, 120) }; k.clear()
+    await k.say(`Thank you, ${text.split(/\s+/)[0]}. Which email are you? We’ll send a code to it.`, { echo: text, status: `${login.why} · 2 of 3` })
     return k.note()
   }
-  try { me = (await post('/api/login/verify', { email: login.email, code: text, id: state?.id })).me } catch (e) { return k.note('err', e.message) }
+  if (login.stage === 'email') {
+    try { await post('/api/login/start', { email: text }) } catch (e) { return k.note('err', e.message) }
+    login = { ...login, stage: 'code', email: text }; k.clear()
+    await k.say(`We’ve sent a code to ${text}. Type it here.`, { echo: text, status: login.then ? `${login.why} · 3 of 3 · esc to change the email` : 'log in · 2 of 2 · esc to change the email' })
+    return k.note()
+  }
+  try { me = (await post('/api/login/verify', { email: login.email, code: text, id: state?.id, name: login.name })).me } catch (e) { return k.note('err', e.message) }
+  const then = login.then
   login = null; k.clear()
+  if (then) return then(k)
   // this conversation is now theirs; on with it
   try { state = await post('/api/session', { id: state?.id, browser }); remember() } catch {}
   await resumeHere(k)
   k.note('said', `Logged in as ${me.email} · /conversations has all of yours`)
+}
+
+/* ---------- /team: the founding team, each on their own laptop or phone ---------- */
+/** Who isn't logged in gives their name and proves their email first: a team is made of accounts. */
+function nameFirst(k, why, then, ask) {
+  login = { stage: 'name', why, then }
+  return k.say(ask, { status: `${why} · 1 of 3 · esc to cancel` })
+}
+
+async function startTeam(k) {
+  if (!me) return nameFirst(k, 'your team', showTeam, 'Your team joins this conversation from their own laptops or phones. First, what’s your name?')
+  await showTeam(k)
+}
+
+const teamSheet = document.createElement('div')
+teamSheet.className = 'team'; teamSheet.hidden = true
+document.body.append(teamSheet)
+
+async function showTeam(k) {
+  let t
+  try { t = await post('/api/team', { id: state.id }) } catch (e) { await resumeHere(k); return k.note('err', e.message) }
+  const { code, link, qr, ...view } = t
+  state = view; me = view.me ?? me; remember()
+  await resumeHere(k)
+  // the QR code is the server's, drawn from our own link
+  teamSheet.innerHTML = `${qr}<div class="link"></div><div class="code"></div><p>Your team opens this on their own laptop or phone, and joins with their email.</p><small>The link works for two hours · /team again for a fresh one · esc to close</small>`
+  teamSheet.querySelector('.link').textContent = link.replace(/^https?:\/\//, '')
+  teamSheet.querySelector('.code').textContent = code
+  teamSheet.hidden = false
+  requestAnimationFrame(() => requestAnimationFrame(() => teamSheet.classList.add('open')))
+  poll()
+}
+function closeTeam() {
+  if (teamSheet.hidden) return
+  teamSheet.classList.remove('open')
+  setTimeout(() => { teamSheet.hidden = true }, 350)
+  k.root.querySelector('textarea').focus({ preventScroll: true })
+}
+addEventListener('keydown', e => { if (e.key === 'Escape' && !teamSheet.hidden) { e.preventDefault(); e.stopImmediatePropagation(); closeTeam() } }, true)
+teamSheet.addEventListener('click', closeTeam)
+
+/** The join link: name and email if they aren't known, then into the team's conversation. */
+async function joinTeam(k) {
+  if (!me) return nameFirst(k, 'joining your team', joinTeam, `You’re joining your team on ${window.COACH_NAME}. What’s your name?`)
+  try { state = await post('/api/team/join', { code: joinCode }) } catch (e) { return k.say(`${e.message}\n\nPress escape to start a conversation of your own.`, { status: 'joining your team · esc to start your own' }) }
+  me = state.me ?? me; remember()
+  try { localStorage.setItem('coach-team', '1') } catch {}
+  history.replaceState(null, '', '/')
+  await resumeHere(k)
+  k.note('said', `You’re in: ${state.team.join(', ')} · everyone sees the same conversation`)
+  poll()
+}
+
+/* Every 3 seconds while in a team: what the others said lands here too (AX-ROADMAP-FIRST-00052). */
+let polling = null, saidAnswering = false
+function poll() {
+  if (polling || !state?.team) return
+  polling = setInterval(async () => {
+    if (!state?.team || k.busy || login || document.hidden) return
+    let r
+    try { r = await fetch(`/api/session/${state.id}?since=${state.v}`, { cache: 'no-store' }) } catch { return }
+    if (r.status !== 200 || k.busy) return
+    const next = await r.json(), before = state.chat.length
+    state = next; me = next.me ?? me
+    if (next.answering && next.answering !== myName()) { k.note('said', `${next.answering} is answering…`); saidAnswering = true }
+    else if (saidAnswering) { k.note(); saidAnswering = false }
+    if (next.chat.length !== before && k.view === 'live' && !contact) { const last = exchanges().at(-1); if (last) await k.resume(last.echo, last.text) }
+    else k.status()
+    if (state.done && !state.contacted && !contact) beginContact()
+  }, 3000)
 }
 
 async function logout(k) {
@@ -413,20 +509,22 @@ const k = mount({
   animation: { send: 'dim' },
   // zero2one's colours (zero2one.ee): near-black ground, the coral accent for your words and the thinking, warm white text
   theme: { ground: '#141414', deep: '#050505', text: '#EFEDE6', dim: '#A8A8A8', faint: '#6E6E6E', mine: '#E68A5C', rule: '#2D2D2D', vignette: '#000000', flash: '#FFF4EC', shade: '#000000' },
-  ask, status, history: exchanges,
+  ask, status, history: exchanges, echo: echoLine,
   statusAction: () => state?.contacted && state.done ? () => showRoadmap(k) : hasWall() ? () => openWall(k) : null,
   commands: [
     { name: '/wall', hint: 'what you’ve said so far, step by step · t to trash', run: k => openWall(k), when: hasWall },
-    { name: '/trash', hint: 'what you set aside: bring it back', run: k => openTrash(k), when: () => hasTrash() || !!me },
+    { name: '/trash', hint: 'what you set aside: bring it back', run: k => openTrash(k), when: () => !!state && (hasTrash() || !!me) },
     { name: '/conversations', hint: 'every conversation under your account', run: k => openConversations(k), when: () => !!me },
     // offered only once there's a report to show: the four steps done, the email left, the flight plan cut
     { name: '/roadmap', hint: 'your roadmap report, with the flight plan', run: () => openPage(null), when: () => !!(state?.contacted && state.plan) },
+    { name: '/team', hint: () => state?.team?.length > 1 ? `your team: ${state.team.join(', ')} · show the join link again` : 'your team joins this conversation on their own laptops or phones', run: startTeam, when: () => !!state && !state.done },
     { name: '/new', hint: 'start a new conversation', run: askNew, when: () => state?.chat.length > 1 },
     { name: '/login', hint: 'your conversations, on any browser: we email you a code', run: startLogin, when: () => !me },
     { name: '/logout', hint: () => `logged in as ${me?.email}`, run: logout, when: () => !!me },
   ].map(c => typeof c.hint === 'function' ? Object.defineProperty(c, 'hint', { get: c.hint }) : c),
   intercept: async text => {
     if (login) { if (text) await loginStep(k, text); return true }
+    if (!state) { k.note('err', 'Press escape to start a conversation of your own.'); return true }
     if (restarting) {
       const t = text.toLowerCase()
       if (t && !/^(y|n)/.test(t)) { k.note('err', 'Yes or no: enter for yes, escape for no.'); return true }
@@ -441,10 +539,14 @@ const k = mount({
   },
   escape: () => {
     if (login) {
-      if (login.stage === 'code') { login = { stage: 'email' }; k.say('Which email are you? We’ll send a code to it.', { status: 'log in · 1 of 2 · esc to cancel' }); return true }
-      login = null; resumeHere(k); return true
+      if (login.stage === 'code') { login = { ...login, stage: 'email' }; k.say('Which email are you? We’ll send a code to it.', { status: login.then ? `${login.why} · 2 of 3` : 'log in · 1 of 2 · esc to cancel' }); return true }
+      login = null
+      // leaving a join before it's done: the page as anyone opens it
+      if (!state) { location.replace('/'); return true }
+      resumeHere(k); return true
     }
     if (restarting) { keepThis(k); return true }
+    if (!state) { location.replace('/'); return true } // a join that didn't work: start their own
     if (contact?.stage === 'code') { contact = { stage: 'email', name: contact.name }; k.say('Which email should your report go to?', { status: 'your report · 2 of 4' }); return true }
     if (contact?.stage === 'consent') { finish(false); return true } return false },
   after: () => { if (state.done && !state.contacted && !contact) beginContact() },
@@ -454,11 +556,18 @@ const k = mount({
 let id = null
 try { id = localStorage.getItem('coach-session') } catch {}
 try {
-  state = await post('/api/session', { id, browser })
-  me = state.me
-  remember()
-  if (state.chat.length > 1 || (state.contacted && state.done)) await resumeHere(k)
-  else { k.invite(); if (state.done && !state.contacted) beginContact() }
+  // a join link goes straight into the team's conversation; who is logged in is all it needs to know first
+  if (joinCode) {
+    me = (await (await fetch('/api/conversations')).json()).me ?? null
+    await joinTeam(k)
+  } else {
+    state = await post('/api/session', { id, browser })
+    me = state.me
+    remember()
+    if (state.chat.length > 1 || (state.contacted && state.done)) await resumeHere(k)
+    else { k.invite(); if (state.done && !state.contacted) beginContact() }
+    poll()
+  }
 } catch (e) {
   k.note('err', e.message || 'The coach can’t be reached. Reload to try again.')
 }

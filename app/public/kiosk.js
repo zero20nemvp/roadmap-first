@@ -327,7 +327,8 @@ export function mount(opts) {
   }
 
   /* ---------- screens ---------- */
-  /** Put a screen in the block. screen: { echo, text, status, act } or { items, status, act }; label replaces the "you · echo" line.
+  /** Put a screen in the block. screen: { echo, text, status, act } or { items, status, act }; label replaces the "you · echo" line,
+      and opts.echo(echo) writes that line itself, e.g. with someone else's name in a shared conversation.
       how: 'instant' (all in), 'turn' (out, then rows condense in), 'bands' (rows wait; the caller reveals). */
   async function show(scr, how = 'turn') {
     if (how === 'turn' && !block.hidden && screen) {
@@ -336,7 +337,7 @@ export function mount(opts) {
     screen = scr
     rows.reset()
     block.hidden = false
-    echoEl.textContent = scr.label ?? (scr.echo ? `you  ·  ${scr.echo.replace(/\s+/g, ' ')}` : '')
+    echoEl.textContent = scr.label ?? (scr.echo ? (opts.echo?.(scr.echo) ?? `you  ·  ${scr.echo.replace(/\s+/g, ' ')}`) : '')
     setStatus(scr.status, scr.act)
     rowsEl.classList.toggle('wide', !!scr.items)
     rowsEl.classList.toggle('whole', !!scr.whole)
