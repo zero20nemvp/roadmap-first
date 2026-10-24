@@ -42,7 +42,10 @@ export function roadmapView(r: Report, x: RoadmapExtras = {}) {
       id: rel.id, name: releaseName(rel.id), month: rel.month, monthName: monthName(rel.month), status: rel.status,
       on: i ? `Builds on ${releaseName(r.releases[i - 1].id)}` : 'Built first',
       completes: rel.completes.map(id => ({ id, want: cap(job.get(id)?.want ?? id), text: jobText(id) })),
-      features: shipped.map(id => ({ id, name: feature.get(id)?.name ?? id, stories: rel.stories.filter(s => story.get(s)?.feature === id).length })),
+      features: shipped.map(id => {
+        const mine = rel.stories.filter(s => story.get(s)?.feature === id)
+        return { id, name: feature.get(id)?.name ?? id, stories: mine.length, storyTexts: mine.map(s => story.get(s)!.text) }
+      }),
       stories: rel.stories.length,
       price: rel.price ?? '',
       paysToday: paysFor(rel.completes),

@@ -132,6 +132,36 @@ td.q{font-family:var(--f-hand);font-size:17px}
 .note .needs{display:block;margin-top:6px;font:500 11px/1.2 var(--f-mono);opacity:.7}
 .badge{position:absolute;top:-11px;left:14px;background:var(--accent);color:var(--surface);font:600 11px/1 var(--f-mono);padding:5px 8px;border-radius:4px;letter-spacing:.06em}
 
+/* the flight plan: a departures board */
+.board{background:#0B0F14;color:#E7ECF1;border-radius:10px;padding:6px 14px 10px;box-shadow:var(--shadow);border:1px solid #232C38}
+.fp th{color:#8C99A6;border-bottom:1px solid #2A3542}
+.fp td{border-bottom:1px solid #1E2731;padding:16px 12px;vertical-align:top}
+.fp tr:last-child td{border-bottom:0}
+.fp .wp{font:700 18px/1.2 var(--f-mono);color:#FFD43B}
+.fp .eta{font:600 16px/1.3 var(--f-mono);white-space:nowrap}
+.fp details{background:none;border:0;border-radius:0;padding:0}
+.fp summary{font-weight:600;font-size:16px;padding:0;cursor:pointer;list-style:none}
+.fp summary::-webkit-details-marker{display:none}
+.fp summary::before{content:"▸";display:inline-block;width:1.1em;transition:transform .2s}
+.fp details[open] summary::before{transform:rotate(90deg)}
+.fp .muted{color:#8C99A6;font-weight:500}
+.fp .open{display:grid;gap:12px;margin:12px 0 2px 1.1em}
+.fp .fp-f b{font:600 12px/1.3 var(--f-mono);letter-spacing:.04em;color:#9AD6FF}
+.fp .fp-f ul{margin:6px 0 0;padding-left:18px;color:#C4CDD6;font-size:14px;display:grid;gap:4px}
+.status{display:inline-block;font:700 12px/1 var(--f-mono);padding:7px 9px;border-radius:4px;background:#2A3542;color:#E7ECF1}
+.status.s-next{background:#FFD43B;color:#1D1B16} .status.s-reached{background:#5BD08B;color:#0E1319} .status.s-delayed{background:#FF6E72;color:#0E1319}
+.rules{display:grid;gap:8px;margin-top:22px;max-width:70ch;color:var(--muted)}
+@media (max-width:640px){
+  .board.scroll-x{overflow:visible}
+  .fp thead{display:none}
+  .fp tr{display:grid;grid-template-columns:auto 1fr auto;gap:8px 12px;align-items:center;padding:14px 2px;border-bottom:1px solid #1E2731}
+  .fp tr:last-child{border-bottom:0}
+  .fp td{border:0;padding:0}
+  .fp td:nth-child(2){grid-column:1/-1;grid-row:2}
+  .fp .eta{grid-column:2;grid-row:1;font-size:14px}
+}
+.rules b{color:var(--ink)}
+
 /* stories */
 .stories{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px}
 .stories .note{font-size:15px}
@@ -214,7 +244,8 @@ body{margin:0}
   <li><a href="#wall"><span>The wall</span><i></i></a></li>
   <li><a href="#size"><span>Size it</span><i></i></a></li>
   <li><a href="#pay"><span>Would they pay?</span><i></i></a></li>
-  <li><a href="#roadmap"><span>Flight plan</span><i></i></a></li>
+  <li><a href="#roadmap"><span>Flipchart</span><i></i></a></li>
+  <li><a href="#flight"><span>Flight plan</span><i></i></a></li>
   <li><a href="#stories"><span>Stories</span><i></i></a></li>
   <li><a href="#unknowns"><span>Unknowns</span><i></i></a></li>
   <li><a href="#brief"><span>The brief</span><i></i></a></li>
@@ -293,11 +324,29 @@ body{margin:0}
 
 <section id="roadmap" data-sec>
   <div class="head">
-    <div class="eyebrow"><b>Step 6</b> The flight plan</div>
+    <div class="eyebrow"><b>Step 6</b> The flipchart</div>
     <h2 id="flip-h"></h2>
     <p class="lede" id="flip-lede">Ground Zero is what gets built and sold first. Every release gets at least one job done, end to end.</p>
   </div>
   <div class="flip" id="flip"></div>
+</section>
+
+<section id="flight" data-sec>
+  <div class="head">
+    <div class="eyebrow"><b>Steps 5–6</b> Stories and releases</div>
+    <h2>Flight plan</h2>
+    <p class="lede" id="flight-lede"></p>
+  </div>
+  <div class="board scroll-x"><table class="fp">
+    <thead><tr><th>Waypoint</th><th>Release (job completed)</th><th>ETA</th><th>Status</th></tr></thead>
+    <tbody id="fp-rows"></tbody>
+  </table></div>
+  <div class="rules">
+    <p><b>Every release completes at least one job end to end.</b> It need not ship every feature for that job, but the job must be doable.</p>
+    <p><b>Releases stack.</b> Each builds on the one before and needs it to exist.</p>
+    <p><b>Target months, not dates.</b> Delayed means moved: honest, not failure.</p>
+    <p><b>Grandfather pricing.</b> Join at a release and keep that price forever; cancel and you lose it.</p>
+  </div>
 </section>
 
 <section id="stories" data-sec>
@@ -382,12 +431,13 @@ const relName = id => (R.releases.find(r => r.id === id) || {name: ""}).name;
 
 // hero
 document.title = `${R.name} Roadmap`;
-$("#rail-name").textContent = R.name;
+$("#rail-name").textContent = R.name.length > 28 ? R.name.slice(0, 27) + "…" : R.name;
 $("#h-name").textContent = R.name;
+if (R.name.length > 16) $("#h-name").style.fontSize = R.name.length > 36 ? "clamp(36px,5.4vw,68px)" : "clamp(44px,7.5vw,96px)";
 $("#h-pitch").textContent = (R.pitch ? R.pitch.replace(/[.!?]?$/, ".") : "") + (R.who ? ` For ${R.who.charAt(0).toLowerCase() + R.who.slice(1)}.` : "");
 $("#generated").textContent = R.generated;
 $("#h-facts").innerHTML = [
-  R.gz ? `<span class="chip">Ground Zero · <b>${esc(R.gz.month)}</b></span>` : "",
+  R.gz ? `<a class="chip" href="#flight" style="color:inherit;text-decoration:none">Ground Zero · <b>${esc(R.gz.month)}</b></a>` : "",
   R.gz ? `<span class="chip"><b>${R.gz.features}</b> of ${R.counts.features} features</span>` : "",
   R.gz ? `<span class="chip"><b>${R.gz.stories}</b> stories first</span>` : "",
   `<span class="chip"><b>${R.counts.releases}</b> releases</span>`,
@@ -440,6 +490,14 @@ $("#flip").innerHTML = R.releases.map((r, n) => `<div class="fcol${n === 0 ? " n
     ${r.features.map((f, k) => `<div class="note b" style="--r:${tilt(k + n)}deg"><span class="tag">${esc(f.id)}</span>${esc(f.name)}<span class="needs">${stories(f.stories)}</span></div>`).join("")}
   </div>`).join("") || `<p class="empty">The flight plan comes once the features are in.</p>`;
 if (R.releases.length > 1) $("#flip-lede").textContent = "Ground Zero is what gets built and sold first, and the only release planned in detail. The rest is drawn in pencil, in the order customers should pay for next. Expect it to change once Ground Zero meets real customers.";
+
+// the flight plan: one waypoint per release; Ground Zero open
+$("#flight-lede").textContent = `Your product’s route, one waypoint per release, starting at Ground Zero. ${R.releases.filter(r => r.status === "Reached").length} of ${R.releases.length} reached. Open a waypoint to see its features and stories.`;
+$("#fp-rows").innerHTML = R.releases.map(r => `<tr class="fp-row">
+  <td class="wp">${esc(r.id)}</td>
+  <td><details${r.id === "GZ" ? " open" : ""}><summary>${r.completes.map(c => esc(c.want)).join(" · ")}${r.price ? ` <span class="muted">· ${esc(r.price)}</span>` : ""}</summary>
+    <div class="open">${r.features.map(f => `<div class="fp-f"><b>${esc(f.id)} · ${esc(f.name)}</b><ul>${f.storyTexts.map(t => `<li>${esc(t)}</li>`).join("")}</ul></div>`).join("") || '<p class="muted">No stories yet.</p>'}</div></details></td>
+  <td class="eta">${esc(r.monthName)}</td><td><span class="status s-${esc(r.status.toLowerCase())}">${esc(r.status)}</span></td></tr>`).join("") || `<tr><td colspan="4" class="empty">The flight plan comes once the features are in.</td></tr>`;
 
 // stories
 $("#storygrid").innerHTML = R.stories.map((s, i) => `
@@ -663,6 +721,7 @@ function motion() {
   document.querySelectorAll("main .note").forEach(el => {
     gsap.from(el, {y: 26, rotation: "+=6", duration: .7, ease: "back.out(2)", scrollTrigger: {trigger: el, start: "top 95%", once: true}});
   });
+  gsap.from(".fp-row", {x: -24, opacity: 0, duration: .6, stagger: .12, ease: "power3.out", scrollTrigger: {trigger: "#flight", start: "top 80%", once: true}});
   const wp = document.getElementById("walkpath");
   if (wp) {
     const L = wp.getTotalLength();
