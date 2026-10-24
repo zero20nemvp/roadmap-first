@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { readFileSync } from 'node:fs'
 import { check } from '../web/report.ts'
 import { renderRoadmap } from '../web/roadmap.ts'
-import { apply, CUT_SCHEMA, cutPrompt, emptyWall, fromCut, gaps, summary, toReport, TOOLS } from './coach.ts'
+import { apply, CUT_SCHEMA, cutPrompt, emptyWall, fromCut, gaps, live, settle, summary, toReport, TOOLS, trash, untrash } from './coach.ts'
 
 test('the end of a conversation renders as the roadmap website, in v2 words only', () => {
   const template = readFileSync(new URL('../web/roadmap.template.html', import.meta.url), 'utf8')
@@ -91,13 +91,57 @@ test('a paid workaround is flagged as billable', () => {
   assert.ok(r.ok && r.note.includes('billable'))
 })
 
-test('remove refuses to orphan, and ids are never reused', () => {
+test('nothing on the wall is deleted: remove puts it in the trash with what hangs off it', () => {
   const w = walked()
-  assert.equal(apply(w, 'remove', { id: 'J1' }).ok, false)
-  assert.equal(apply(w, 'remove', { id: 'F1' }).ok, true)
-  assert.equal(apply(w, 'remove', { id: 'J1' }).ok, true)
+  const r = apply(w, 'remove', { id: 'J1' })
+  assert.ok(r.ok && r.note.includes('J1, F1'))
+  assert.equal(w.jobs.length, 1, 'still on the wall, set aside')
+  assert.ok(w.jobs[0].trashed && w.jobs[0].trashed === w.features[0].trashed, 'stamped alike')
+  assert.equal(live(w).jobs.length, 0)
+  assert.equal(live(w).features.length, 0)
+  assert.equal(apply(w, 'add_feature', { job: 'J1', name: 'x' }).ok, false, 'nothing hangs from the trash')
+  assert.equal(apply(w, 'revise', { id: 'J1', text: null, when: 'x', want: null, so: null, pays: null }).ok, false)
   apply(w, 'add_job', { when: 'a', want: 'b', so: 'c', from: null })
-  assert.equal(w.jobs[0].id, 'J2')
+  assert.equal(w.jobs[1].id, 'J2', 'ids are never reused')
+})
+
+test('untrash brings back exactly what went with it', () => {
+  const w = walked()
+  apply(w, 'add_workaround', { problem: 'P1', text: 'a spreadsheet', pays: null })
+  trash(w, 'W2', '2026-10-24T08:00:00.000Z')
+  trash(w, 'P1', '2026-10-24T09:00:00.000Z')
+  assert.deepEqual(w.workarounds.map(x => x.trashed), ['2026-10-24T09:00:00.000Z', '2026-10-24T08:00:00.000Z'])
+  assert.equal(untrash(w, 'W1').ok, false, 'its problem is in the trash')
+  assert.ok(untrash(w, 'P1').ok)
+  assert.equal(w.problems[0].trashed, undefined)
+  assert.equal(w.workarounds[0].trashed, undefined, 'W1 went with P1, so it comes back with it')
+  assert.ok(w.workarounds[1].trashed, 'W2 was trashed on its own before, so it stays')
+  assert.equal(untrash(w, 'P1').ok, false, 'not in the trash')
+  assert.equal(trash(w, 'P9').ok, false)
+})
+
+test('the coach, the gates and the report see only what is not in the trash', () => {
+  const w = walked()
+  trash(w, 'W1')
+  assert.deepEqual(gaps(w, 2), ['P1 has no workaround yet. If they put up with it, record that as the workaround; if the founder can\'t say, park it.'])
+  assert.match(summary(w), /In the trash.*W1 Pay a big platform/)
+  assert.doesNotMatch(summary(w), /W1 workaround/)
+  const r = toReport(w, { name: 'Sam', email: 'sam@example.com' })
+  assert.equal(r.workarounds.length, 0)
+  assert.equal(r.jobs[0].from, undefined, 'the link to a trashed workaround is dropped from the report')
+  assert.equal(w.jobs[0].from, 'W1', 'but kept on the wall, for when it comes back')
+})
+
+test('a wall the founder changes steps back to the first step that is open again', () => {
+  const w = walked()
+  apply(w, 'go_to_step', { step: 5 })
+  assert.equal(w.step, 5)
+  trash(w, 'F1')
+  settle(w)
+  assert.equal(w.step, 4)
+  untrash(w, 'F1')
+  settle(w)
+  assert.equal(w.step, 4, 'moving on again is the coach\'s, with the founder')
 })
 
 test('revise clears a price with an empty string', () => {

@@ -6,23 +6,71 @@ import { check, type Feature, type Job, type Problem, type Report, type Workarou
 export type Step = 0 | 1 | 2 | 3 | 4 | 5
 export const STEP_NAMES = ['Your product', 'Problems', 'Workarounds', 'Jobs', 'Features', 'Done'] as const
 
+/** Nothing on the wall is deleted: an item set aside carries when it went to the trash. */
+type Trashable = { trashed?: string }
 export type Wall = {
   step: Step
   product: { name: string; who: string } | null
-  problems: Problem[]
-  workarounds: Workaround[]
-  jobs: Job[]
-  features: Feature[]
-  unknowns: { id: string; text: string }[]
+  problems: (Problem & Trashable)[]
+  workarounds: (Workaround & Trashable)[]
+  jobs: (Job & Trashable)[]
+  features: (Feature & Trashable)[]
+  unknowns: ({ id: string; text: string } & Trashable)[]
   seq: Record<string, number>
 }
+export type Item = Wall['problems'][number] | Wall['workarounds'][number] | Wall['jobs'][number] | Wall['features'][number] | Wall['unknowns'][number]
+const KINDS = ['problems', 'workarounds', 'jobs', 'features', 'unknowns'] as const
 
 export const emptyWall = (): Wall => ({
   step: 0, product: null, problems: [], workarounds: [], jobs: [], features: [], unknowns: [], seq: {},
 })
 
+/** The wall without what is in the trash: all the coach, the gates, the report and the cut ever see. */
+export function live(w: Wall): Wall {
+  const out = { ...w } as Wall
+  for (const k of KINDS) out[k] = (w[k] as Item[]).filter(x => !x.trashed) as never
+  // a job drawn from a workaround that went to the trash keeps its words, not the link
+  const gone = new Set(w.workarounds.filter(x => x.trashed).map(x => x.id))
+  out.jobs = out.jobs.map(j => j.from && gone.has(j.from) ? (({ from: _, ...rest }) => rest)(j) : j)
+  return out
+}
+
+const allItems = (w: Wall) => KINDS.flatMap(k => w[k] as Item[])
+/** What hangs off an item: a problem's workarounds, a job's features. */
+const children = (w: Wall, id: string): Item[] => [...w.workarounds.filter(x => x.problem === id), ...w.features.filter(x => x.job === id)]
+const parentOf = (w: Wall, x: Item): Item | undefined =>
+  'problem' in x ? w.problems.find(p => p.id === x.problem) : 'job' in x ? w.jobs.find(j => j.id === x.job) : undefined
+
+/** Puts an item in the trash with whatever hangs off it, all stamped alike so they come back together. */
+export function trash(w: Wall, id: string, at = new Date().toISOString()): Applied {
+  const item = allItems(w).find(x => x.id === id)
+  if (!item) return { ok: false, error: `There is no ${id}.` }
+  if (item.trashed) return { ok: false, error: `${id} is already in the trash.` }
+  const going = [item, ...children(w, id).filter(x => !x.trashed)]
+  for (const x of going) x.trashed = at
+  return { ok: true, note: `Moved ${going.map(x => x.id).join(', ')} to the trash; the founder can bring ${going.length > 1 ? 'them' : 'it'} back.` }
+}
+
+/** Brings an item back from the trash, with what went with it. */
+export function untrash(w: Wall, id: string): Applied {
+  const item = allItems(w).find(x => x.id === id)
+  if (!item) return { ok: false, error: `There is no ${id}.` }
+  if (!item.trashed) return { ok: false, error: `${id} is not in the trash.` }
+  const parent = parentOf(w, item)
+  if (parent?.trashed) return { ok: false, error: `${id} hangs off ${parent.id}, which is in the trash: bring ${parent.id} back first.` }
+  const coming = [item, ...children(w, id).filter(x => x.trashed === item.trashed)]
+  for (const x of coming) delete x.trashed
+  return { ok: true, note: `Brought back ${coming.map(x => x.id).join(', ')}.` }
+}
+
+/** After the founder changes the wall: back to the first earlier step that is no longer done. */
+export function settle(w: Wall): void {
+  for (let s = 0 as Step; s < w.step; s++) if (gaps(w, s).length) { w.step = s; return }
+}
+
 /** What is still missing before the founder can move past `step`; empty when it's done. */
-export function gaps(w: Wall, step: Step): string[] {
+export function gaps(wall: Wall, step: Step): string[] {
+  const w = live(wall)
   switch (step) {
     case 0: return w.product?.name && w.product.who ? [] : ['The product and who it is for are not recorded yet (set_product).']
     case 1: return w.problems.length ? [] : ['No problem is recorded yet.']
@@ -46,9 +94,9 @@ export type Applied = { ok: true; note: string } | { ok: false; error: string }
 
 /** Applies one tool call to the wall in place. Errors go back to Claude as the tool result. */
 export function apply(w: Wall, name: string, input: Input): Applied {
-  const find = (id: string) =>
-    w.problems.find(x => x.id === id) ?? w.workarounds.find(x => x.id === id) ??
-    w.jobs.find(x => x.id === id) ?? w.features.find(x => x.id === id) ?? w.unknowns.find(x => x.id === id)
+  // what is in the trash can't be revised or hung from
+  const find = (id: string) => allItems(w).find(x => x.id === id && !x.trashed)
+  const has = (k: typeof KINDS[number], id: string) => (w[k] as Item[]).some(x => x.id === id && !x.trashed)
 
   switch (name) {
     case 'set_product': {
@@ -62,7 +110,7 @@ export function apply(w: Wall, name: string, input: Input): Applied {
     }
     case 'add_workaround': {
       const problem = clip(input.problem, 10)
-      if (!w.problems.some(p => p.id === problem)) return { ok: false, error: `There is no problem ${problem}.` }
+      if (!has('problems', problem)) return { ok: false, error: `There is no problem ${problem}.` }
       const id = next(w, 'W')
       const pays = clip(input.pays, 120)
       w.workarounds.push({ id, problem, text: clip(input.text), ...(pays ? { pays } : {}) })
@@ -70,14 +118,14 @@ export function apply(w: Wall, name: string, input: Input): Applied {
     }
     case 'add_job': {
       const from = clip(input.from, 10)
-      if (from && !w.workarounds.some(x => x.id === from)) return { ok: false, error: `There is no workaround ${from}.` }
+      if (from && !has('workarounds', from)) return { ok: false, error: `There is no workaround ${from}.` }
       const id = next(w, 'J')
       w.jobs.push({ id, when: clip(input.when, 200), want: clip(input.want, 200), so: clip(input.so, 200), ...(from ? { from } : {}) })
       return { ok: true, note: `Recorded ${id}.` }
     }
     case 'add_feature': {
       const job = clip(input.job, 10)
-      if (!w.jobs.some(j => j.id === job)) return { ok: false, error: `There is no job ${job}.` }
+      if (!has('jobs', job)) return { ok: false, error: `There is no job ${job}.` }
       const id = next(w, 'F')
       w.features.push({ id, job, name: clip(input.name, 200) })
       return { ok: true, note: `Recorded ${id} under ${job}.` }
@@ -98,17 +146,7 @@ export function apply(w: Wall, name: string, input: Input): Applied {
       }
       return { ok: true, note: `Revised ${item.id}.` }
     }
-    case 'remove': {
-      const id = clip(input.id, 10)
-      if (!find(id)) return { ok: false, error: `There is no ${id}.` }
-      const hangs = [...w.workarounds.filter(x => x.problem === id), ...w.features.filter(x => x.job === id)]
-      if (hangs.length) return { ok: false, error: `${hangs.map(x => x.id).join(', ')} hang off ${id}; remove or move them first.` }
-      for (const k of ['problems', 'workarounds', 'jobs', 'features', 'unknowns'] as const) {
-        w[k] = (w[k] as { id: string }[]).filter(x => x.id !== id) as never
-      }
-      for (const j of w.jobs) if (j.from === id) delete j.from
-      return { ok: true, note: `Removed ${id}.` }
-    }
+    case 'remove': return trash(w, clip(input.id, 10))
     case 'park': {
       const id = next(w, 'U')
       w.unknowns.push({ id, text: clip(input.text) })
@@ -130,7 +168,8 @@ export function apply(w: Wall, name: string, input: Input): Applied {
 }
 
 /** The wall, short, for the coach to see where things stand after each change. */
-export function summary(w: Wall): string {
+export function summary(wall: Wall): string {
+  const w = live(wall)
   const lines = [`Step ${w.step} (${STEP_NAMES[w.step]}).`, `Product: ${w.product ? `${w.product.name}, for ${w.product.who}` : 'not set'}`]
   for (const p of w.problems) {
     lines.push(`${p.id} problem: ${p.text}`)
@@ -141,13 +180,16 @@ export function summary(w: Wall): string {
     for (const f of w.features.filter(f => f.job === j.id)) lines.push(`  ${f.id} feature: ${f.name}`)
   }
   for (const u of w.unknowns) lines.push(`${u.id} parked: ${u.text}`)
+  const binned = allItems(wall).filter(x => x.trashed)
+  if (binned.length) lines.push(`In the trash, set aside (don't record them again unless the founder brings them up): ${binned.map(x => `${x.id} ${'name' in x ? x.name : 'when' in x ? x.want : x.text}`).join('; ')}`)
   const missing = gaps(w, w.step)
   if (w.step < 5) lines.push(missing.length ? `Still open on this step: ${missing.join(' ')}` : 'This step has what it needs; move on when the founder is happy with it.')
   return lines.join('\n')
 }
 
 /** The report run's starting point: the wall as a v2 report with no stories or releases yet. */
-export function toReport(w: Wall, founder: { name: string; email: string }): Report {
+export function toReport(wall: Wall, founder: { name: string; email: string }): Report {
+  const w = live(wall)
   return {
     version: 2,
     founder,
@@ -221,7 +263,7 @@ export const TOOLS = [
   { name: 'add_job', ...obj({ when: str, want: str, so: str, from: { type: ['string', 'null'] } }, 'Record a job as the founder said it: When <situation>, I want <motivation>, so <outcome>. `from` is the W id it was drawn out of, or null.') },
   { name: 'add_feature', ...obj({ job: str, name: str }, 'Record a feature the product needs to do a job. `job` is its J id.') },
   { name: 'revise', ...obj({ id: str, text: { type: ['string', 'null'] }, when: { type: ['string', 'null'] }, want: { type: ['string', 'null'] }, so: { type: ['string', 'null'] }, pays: { type: ['string', 'null'] } }, 'Change an item the founder has sharpened. Problems, workarounds, features and unknowns take `text`; jobs take when/want/so; workarounds also take `pays` (empty string clears it). Pass null for fields that do not change.') },
-  { name: 'remove', ...obj({ id: str }, 'Remove an item the founder has dropped or merged.') },
+  { name: 'remove', ...obj({ id: str }, 'Set aside an item the founder has dropped or merged: it goes to the trash with whatever hangs off it (a problem\'s workarounds, a job\'s features), and the founder can bring it back.') },
   { name: 'park', ...obj({ text: str }, 'Park something the founder genuinely cannot answer yet as an unknown to test with real customers.') },
   { name: 'go_to_step', ...obj({ step: { type: 'integer', enum: [0, 1, 2, 3, 4, 5] } }, 'Move to a step: 1 problems, 2 workarounds, 3 jobs, 4 features, 5 done. Moving forward is refused until every earlier step is complete; moving back is always allowed.') },
 ]
