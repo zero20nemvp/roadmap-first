@@ -8,13 +8,16 @@ import { check, fromIntake, renderReport, type Intake, type Report } from '../we
 
 const args = process.argv.slice(2)
 if (args[0] === '--seed') {
-  // Either the coach's intake ({consent, report, unknowns}) or the form's (one item per line).
-  const intake = JSON.parse(readFileSync(args[1], 'utf8')) as Intake | { consent: boolean; report: Report }
+  // Either the coach's intake ({consent, report, unknowns, plan?}) or the form's (one item per line).
+  // The coach's plan is the flight plan the founder already saw: start from it when there is one.
+  const intake = JSON.parse(readFileSync(args[1], 'utf8')) as Intake | { consent: boolean; report: Report; plan?: Report }
   if (!intake.consent) console.error('note: this founder did not tick consent, so no follow-up emails')
   const out = args[2] ?? args[1].replace(/(\.intake)?\.json$/, '.report.json')
-  const seeded = 'report' in intake ? intake.report : fromIntake(intake)
+  const seeded = 'report' in intake ? intake.plan ?? intake.report : fromIntake(intake)
   writeFileSync(out, JSON.stringify(seeded, null, 2) + '\n')
-  console.log(`seeded ${out}: add stories and releases, then render it`)
+  console.log(seeded.releases.length
+    ? `seeded ${out} from the flight plan the founder saw: tidy its stories and releases, then render it`
+    : `seeded ${out}: add stories and releases, then render it`)
   process.exit(0)
 }
 if (!args[0]) {

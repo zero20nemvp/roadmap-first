@@ -32,7 +32,7 @@ const hasWall = () => !!(state && (state.wall.product?.name || counts(state.wall
 
 function status() {
   if (!state) return ''
-  if (state.contacted) return 'done · thank you'
+  if (state.contacted) return 'enter to see your roadmap' + (state.plan ? ' and flight plan' : '')
   if (state.done) return 'the four steps are done · your report is next'
   const c = counts(state.wall)
   const where = state.step === 0 ? 'getting started' : `step ${state.step} of 4 · ${state.steps[state.step].toLowerCase()}`
@@ -79,6 +79,47 @@ function openWall(k) {
   k.list(items, { title: 'your wall' })
 }
 
+/* ---------- the roadmap, played back at the end ---------- */
+const monthName = m => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+const releaseName = r => r.id === 'GZ' ? 'Ground Zero' : `Release ${r.id.slice(1)}`
+const cap = s => s ? s[0].toUpperCase() + s.slice(1) : ''
+
+function showRoadmap(k) {
+  const w = state.wall, p = state.plan, steps = []
+  const byId = xs => Object.fromEntries(xs.map(x => [x.id, x]))
+  const jobs = byId(w.jobs), features = byId(w.features)
+  steps.push({ title: 'your roadmap', text: [
+    p?.product.pitch || (w.product?.name ? `${w.product.name}, for ${w.product.who}.` : ''),
+    'This is what you worked out today, one screen at a time.',
+  ].filter(Boolean).join('\n\n') })
+  if (w.problems.length) steps.push({ title: 'the problems your customer has', items: w.problems.map(x => ({ title: x.id, text: x.text, dot: 'var(--bad)' })) })
+  if (w.workarounds.length) steps.push({ title: 'what they do about them today', items: w.workarounds.map(x => ({ title: `${x.id} · for ${x.problem}`, stamp: x.pays ? `pays ${x.pays}` : '', text: x.text, dot: 'var(--warn)' })) })
+  if (w.jobs.length) steps.push({ title: 'the jobs they’re really trying to get done', items: w.jobs.map(x => ({ title: `When ${x.when}`, text: `I want ${x.want}, so ${x.so}.`, dot: 'var(--mine)' })) })
+  if (w.features.length) steps.push({ title: 'what your product needs to do them', items: w.features.map(x => ({ title: `${x.id} · for ${x.job}`, text: x.name, dot: 'var(--live)' })) })
+  if (p) {
+    const stories = byId(p.stories)
+    const shipped = r => [...new Set(r.stories.map(s => features[stories[s]?.feature]?.name).filter(Boolean))]
+    steps.push({ title: 'your flight plan', items: p.releases.map(r => ({
+      title: releaseName(r), stamp: monthName(r.month),
+      text: `${r.completes.map(j => jobs[j]?.want).filter(Boolean).map(cap).join('. ')}.${r.price ? ` Billable: ${r.price}.` : ` ${shipped(r).length} feature${shipped(r).length > 1 ? 's' : ''}.`}`,
+      dot: r.id === 'GZ' ? 'var(--mine)' : 'var(--dim)',
+    })) })
+    // each release: the features it ships, each with the stories that ship in it
+    for (const r of p.releases) {
+      const shipping = r.stories.map(id => stories[id]).filter(Boolean)
+      steps.push({ title: `${releaseName(r).toLowerCase()} · ${monthName(r.month)}`, items: [...new Set(shipping.map(s => s.feature))].map(f => ({
+        title: features[f]?.name || f, text: shipping.filter(s => s.feature === f).map(s => s.text.replace(/\.?$/, '.')).join(' '),
+        dot: r.id === 'GZ' ? 'var(--mine)' : 'var(--dim)',
+      })) })
+    }
+  }
+  steps.push({ title: 'from here', text: [
+    p ? `Ground Zero is the first thing to build: the smallest release that gets one job done for your customer, end to end.${p.releases[0]?.price ? ' And they already pay for a way round it.' : ''}` : 'Your flight plan, from Ground Zero, is being cut by your facilitator.',
+    state.consent ? 'Your full report is coming by email: every story, and the flight plan, tidied by your facilitator.' : 'Your facilitator has all of this, and turns it into your full report.',
+  ].join('\n\n') })
+  k.tour(steps, { title: 'your roadmap', done: k => k.note('said', 'enter to see it again') })
+}
+
 /* ---------- the end: name, email, consent, one screen each ---------- */
 function beginContact() {
   contact = { stage: 'name' }
@@ -109,9 +150,10 @@ async function finish(consent) {
   await k.flight(consent ? 'yes' : 'no', async out => {
     try { state = await post('/api/contact', { id: state.id, name, email, consent }) }
     catch (e) { contact = { stage: 'consent', name, email }; throw e }
-    out.write(consent
-      ? `Thank you, ${first}. Your report is on its way to ${email}: your problems, jobs and features, and your flight plan from Ground Zero.`
-      : `Thank you, ${first}. We won’t email you. What you worked out today is saved with your facilitator.`)
+    out.write([
+      consent ? `Thank you, ${first}. Your report is on its way to ${email}.` : `Thank you, ${first}. We won’t email you, and what you worked out is saved with your facilitator.`,
+      state.plan ? 'Before you go, here is your roadmap, and your flight plan from Ground Zero. Press enter to walk through it.' : 'Before you go, here is your roadmap. Press enter to walk through it.',
+    ].join('\n\n'))
   })
 }
 
@@ -120,11 +162,14 @@ const k = mount({
   invite: 'What are you building, and who is it for?',
   hint: 'roadmap-first coach · one question at a time · the answers are yours',
   ask, status, history: exchanges,
-  statusAction: () => hasWall() ? () => openWall(k) : null,
-  commands: [{ name: '/wall', hint: 'what you’ve said so far, step by step', run: openWall }],
+  statusAction: () => state?.contacted ? () => showRoadmap(k) : hasWall() ? () => openWall(k) : null,
+  commands: [
+    { name: '/wall', hint: 'what you’ve said so far, step by step', run: openWall },
+    { name: '/roadmap', hint: 'your roadmap and flight plan, once you’re done', run: k => state?.contacted ? showRoadmap(k) : k.note('said', 'Your roadmap is ready once the four steps are done and you’ve left your email.') },
+  ],
   intercept: async text => {
     if (contact) { await contactStep(text); return true }
-    if (state?.contacted) { if (text) k.note('said', 'That’s all four steps. Thank you: your report is with your facilitator.'); return true }
+    if (state?.contacted) { if (text) k.note('said', 'That’s all four steps. Press enter to see your roadmap again.'); else showRoadmap(k); return true }
     if (state?.done && text) { beginContact(); await contactStep(text); return true }
     return false
   },
@@ -138,7 +183,7 @@ try { id = localStorage.getItem('coach-session') } catch {}
 try {
   state = await post('/api/session', { id })
   try { localStorage.setItem('coach-session', state.id) } catch {}
-  if (state.contacted) await k.resume('', 'Thank you. Your report is with your facilitator, and on its way to you if you asked for it.')
+  if (state.contacted) await k.resume('', `Thank you. Your report is with your facilitator${state.consent ? ', and on its way to you' : ''}.\n\nPress enter to walk through your roadmap${state.plan ? ' and flight plan' : ''} again.`)
   else if (state.chat.length > 1) { const last = exchanges().at(-1); await k.resume(last.echo, last.text) }
   else k.invite()
   if (state.done && !state.contacted) beginContact()

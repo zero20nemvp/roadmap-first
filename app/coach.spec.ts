@@ -1,7 +1,34 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { check } from '../web/report.ts'
-import { apply, emptyWall, gaps, summary, toReport, TOOLS } from './coach.ts'
+import { apply, CUT_SCHEMA, cutPrompt, emptyWall, fromCut, gaps, summary, toReport, TOOLS } from './coach.ts'
+
+test('a cut flight plan becomes a checked report: Ground Zero next, the rest planned', () => {
+  const w = walked()
+  const founder = { name: 'Ada', email: 'ada@example.com' }
+  const good = fromCut(w, {
+    pitch: 'Doorlist sells tickets for independent promoters, who keep their buyers.',
+    stories: [{ id: 'S1', feature: 'F1', text: 'A buyer can pay for a ticket', done: 'a test payment lands' }],
+    releases: [{ id: 'GZ', month: '2026-11', completes: ['J1'], stories: ['S1'], price: 'they pay 10% per ticket today' }],
+  }, founder)
+  assert.deepEqual(good.errors, [])
+  assert.equal(good.report.releases[0].status, 'Next')
+  assert.equal(good.report.releases[0].price, 'they pay 10% per ticket today')
+  assert.equal(good.report.product.pitch.startsWith('Doorlist'), true)
+
+  const bad = fromCut(w, { pitch: '', stories: [], releases: [{ id: 'GZ', month: 'soon', completes: ['J9'], stories: [], price: null }] }, founder)
+  assert.ok(bad.errors.length >= 2, 'a bad month and an unknown job are caught')
+  assert.equal('price' in bad.report.releases[0], false)
+})
+
+test('the cut starts next month and its schema is strict', () => {
+  assert.match(cutPrompt(walked(), new Date('2026-12-15')), /Ground Zero can start in 2027-01/)
+  const walk = (s: Record<string, unknown>): void => {
+    if (s.type === 'object') { assert.equal(s.additionalProperties, false); assert.deepEqual(s.required, Object.keys(s.properties as object)); Object.values(s.properties as object).forEach(walk) }
+    if (s.type === 'array') walk(s.items as Record<string, unknown>)
+  }
+  walk(CUT_SCHEMA as unknown as Record<string, unknown>)
+})
 
 function walked() {
   const w = emptyWall()

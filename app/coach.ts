@@ -1,7 +1,7 @@
 // The Socratic coach for steps 1–4: problems → workarounds → jobs → features.
 // Pure: the wall, the tools Claude records it with, and the gates between steps.
 // The server owns the model calls; the tests drive this file directly.
-import type { Feature, Job, Problem, Report, Workaround } from '../web/report.ts'
+import { check, type Feature, type Job, type Problem, type Report, type Workaround } from '../web/report.ts'
 
 export type Step = 0 | 1 | 2 | 3 | 4 | 5
 export const STEP_NAMES = ['Your product', 'Problems', 'Workarounds', 'Jobs', 'Features', 'Done'] as const
@@ -155,6 +155,56 @@ export function toReport(w: Wall, founder: { name: string; email: string }): Rep
     problems: w.problems, workarounds: w.workarounds, jobs: w.jobs, features: w.features,
     stories: [], releases: [],
   }
+}
+
+/** The flight plan the founder sees at the end: what the model cuts from their wall, before the facilitator's report run. */
+export type Cut = {
+  pitch: string
+  stories: { id: string; feature: string; text: string; done: string }[]
+  releases: { id: string; month: string; completes: string[]; stories: string[]; price: string | null }[]
+}
+
+const arr = (items: unknown) => ({ type: 'array', items }) as const
+const shape = (properties: Record<string, unknown>) => ({ type: 'object', properties, required: Object.keys(properties), additionalProperties: false }) as const
+
+/** The JSON the model answers with when it cuts the flight plan. */
+export const CUT_SCHEMA = shape({
+  pitch: { type: 'string' },
+  stories: arr(shape({ id: { type: 'string' }, feature: { type: 'string' }, text: { type: 'string' }, done: { type: 'string' } })),
+  releases: arr(shape({ id: { type: 'string' }, month: { type: 'string' }, completes: arr({ type: 'string' }), stories: arr({ type: 'string' }), price: { type: ['string', 'null'] } })),
+})
+
+export const CUT_SYSTEM = `You cut a founder's first flight plan for the roadmap-first workshop. The founder has worked out, with a coach, their problems, workarounds, jobs and features. You write the stories each feature needs and cut them into releases. The founder sees this on screen straight away, and their facilitator refines it for the emailed report.
+
+Use only what the founder said. Never add a feature, job or problem of your own. Write in plain words, in the founder's language.
+
+- pitch: one sentence: the product, who it is for, and the job it does first.
+- stories: for each feature, two to four small stories, ids S1, S2…, each with "feature" (its F id), "text" (what someone can do, as "<who> can <do what>") and "done" (one check you could run to see it works).
+- releases: ids GZ (Ground Zero) then R1, R2… Every story ships in exactly one release.
+  - Every release completes at least one job end to end ("completes": J ids): by then, at least one feature for that job has shipped.
+  - Ground Zero is the smallest valid release: one job, the fewest features to do it, and only the stories those features need.
+  - Releases stack, each needs the one before. A target month as YYYY-MM, starting from the month given, never going back.
+  - "price": only on Ground Zero, and only when the customer already pays for a workaround behind its job: say what they pay today, e.g. "they pay £40 a month today". Otherwise null.
+- Ids in "completes" and "feature" must be ids from the wall.`
+
+/** What the model is given to cut: the wall, and the month Ground Zero can start. */
+export function cutPrompt(w: Wall, today = new Date()): string {
+  const from = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 1)).toISOString().slice(0, 7)
+  return `Ground Zero can start in ${from}.\n\nThe founder's wall:\n${summary(w)}`
+}
+
+/** The model's cut as a full report, with the release rules checked. Ground Zero is Next, the rest Planned. */
+export function fromCut(w: Wall, cut: Cut, founder: { name: string; email: string }): { report: Report; errors: string[] } {
+  const report: Report = {
+    ...toReport(w, founder),
+    stories: cut.stories,
+    releases: cut.releases.map((r, i) => ({
+      id: r.id, month: r.month, status: i === 0 ? 'Next' : 'Planned', completes: r.completes, stories: r.stories,
+      ...(r.price ? { price: r.price } : {}),
+    })),
+  }
+  report.product.pitch = cut.pitch
+  return { report, errors: check(report).errors }
 }
 
 const str = { type: 'string' } as const

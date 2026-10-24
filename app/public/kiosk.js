@@ -236,7 +236,7 @@ export function mount(opts) {
 
   let U = 1, W = 0, H = 0, FRAME = 1180, COL = 900
   let screen = null, live = null       // what the block shows; the last reply that landed
-  let view = 'live', hist = 0, lit = 0, list = null, cmdAt = 0
+  let view = 'live', hist = 0, lit = 0, list = null, tour = null, cmdAt = 0
   let busy = false, inviting = false
 
   /* ---------- scale ---------- */
@@ -306,7 +306,7 @@ export function mount(opts) {
   }
 
   /* ---------- screens ---------- */
-  /** Put a screen in the block. screen: { echo, text, status, act } or { items, status, act }.
+  /** Put a screen in the block. screen: { echo, text, status, act } or { items, status, act }; label replaces the "you · echo" line.
       how: 'instant' (all in), 'turn' (out, then rows condense in), 'bands' (rows wait; the caller reveals). */
   async function show(scr, how = 'turn') {
     if (how === 'turn' && !block.hidden && screen) {
@@ -315,9 +315,10 @@ export function mount(opts) {
     screen = scr
     rows.reset()
     block.hidden = false
-    echoEl.textContent = scr.echo ? `you  ·  ${scr.echo.replace(/\s+/g, ' ')}` : ''
+    echoEl.textContent = scr.label ?? (scr.echo ? `you  ·  ${scr.echo.replace(/\s+/g, ' ')}` : '')
     setStatus(scr.status, scr.act)
     rowsEl.classList.toggle('wide', !!scr.items)
+    rowsEl.classList.toggle('whole', !!scr.whole)
     if (scr.items) rows.setItems(scr.items)
     else rows.set(scr.text || '', true)
     if (how === 'instant') rows.all()
@@ -549,6 +550,33 @@ export function mount(opts) {
     rows.items.forEach((e, i) => e.classList.toggle('lit', i === lit % 5))
   }
 
+  /** Walk through screens, one at a time: Enter, ↓ or Space for the next, ↑ for the one before, Escape to leave.
+      steps: [{ title, text } | { title, items }]; items are read whole, four to a screen. done(k) runs after the last. */
+  function showTour(steps, { title = '', done = null } = {}) {
+    const pages = []
+    for (const s of steps) {
+      if (!s.items) { pages.push(s); continue }
+      const n = Math.ceil(s.items.length / 4)
+      for (let i = 0; i < n; i++) pages.push({ ...s, items: s.items.slice(i * 4, i * 4 + 4), title: n > 1 ? `${s.title} · ${i + 1} of ${n}` : s.title })
+    }
+    if (!pages.length) return
+    view = 'tour'; list = null; tour = { pages, at: 0, title, done }
+    clearPrompt(); setNote()
+    return pageTour()
+  }
+  function pageTour() {
+    const p = tour.pages[tour.at], last = tour.at === tour.pages.length - 1
+    const status = [tour.title, `${tour.at + 1} of ${tour.pages.length}`, last ? 'enter to finish' : 'enter for next', tour.at ? '↑ back' : '', 'esc to leave'].filter(Boolean).join(' · ')
+    return show({ label: p.title || '', whole: true, ...(p.items ? { items: itemEls(p.items) } : { text: p.text }), status, act: () => stepTour(1) })
+  }
+  function stepTour(d) {
+    const at = tour.at + d
+    if (at < 0) return
+    if (at >= tour.pages.length) { const done = tour.done; back(); return done?.(api) }
+    tour.at = at
+    return pageTour()
+  }
+
   function walk(d) {
     const ex = opts.history?.() || []
     if (!ex.length) return
@@ -561,7 +589,7 @@ export function mount(opts) {
 
   function back() {
     if (view === 'live') return
-    view = 'live'; list = null
+    view = 'live'; list = null; tour = null
     if (live) show({ ...live, status: opts.status?.() || live.status, act: opts.statusAction?.() || null }); else hide()
   }
 
@@ -576,6 +604,7 @@ export function mount(opts) {
       if (m.length && text.length > 1) return runCommand(m[cmdAt] || m[0])
       return setNote('err', `Commands: ${commands.map(c => c.name).join(', ')}. Everything else, just say.`)
     }
+    if (!text && view === 'tour') return stepTour(1)
     if (opts.intercept && await opts.intercept(text, api)) return
     if (!text) { if (view === 'list' && list.open) list.open(list.items[lit], api); return }
     if (view !== 'live') { view = 'live'; list = null; if (live) show(live, 'instant') }
@@ -596,6 +625,8 @@ export function mount(opts) {
       else setNote()
     }
     else if (busy || !empty) return
+    else if (view === 'tour' && (e.key === 'ArrowDown' || e.key === ' ')) { e.preventDefault(); stepTour(1) }
+    else if (view === 'tour' && e.key === 'ArrowUp') { e.preventDefault(); stepTour(-1) }
     else if (view === 'list' && (e.key === 'ArrowDown' || e.key === ' ')) { e.preventDefault(); moveLit(1) }
     else if (view === 'list' && e.key === 'ArrowUp') { e.preventDefault(); moveLit(-1) }
     else if (root.dataset.phase === 'answer' && e.key === 'ArrowUp') { e.preventDefault(); walk(-1) }
@@ -617,6 +648,8 @@ export function mount(opts) {
     /** Show a reply as the live one, e.g. on resume. */
     resume: async (echo, text) => { live = liveScreen(echo, text); view = 'live'; root.classList.remove('idle'); await show(live); setPhase('answer') },
     list: showList,
+    /** Walk through screens one at a time, e.g. a summary at the end. */
+    tour: showTour,
     back,
     note: setNote,
     invite: () => { inviting = true; invite() },

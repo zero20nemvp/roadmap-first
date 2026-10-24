@@ -7,7 +7,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
-import { apply, emptyWall, GREETING, STEP_NAMES, summary, SYSTEM, toReport, TOOLS, type Wall } from './coach.ts'
+import type { Report } from '../web/report.ts'
+import { apply, CUT_SCHEMA, CUT_SYSTEM, cutPrompt, emptyWall, fromCut, GREETING, STEP_NAMES, summary, SYSTEM, toReport, TOOLS, type Cut, type Wall } from './coach.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const DATA = process.env.DATA_DIR ?? join(here, 'data')
@@ -21,7 +22,7 @@ const NEW_PER_HOUR = 6
 // $ per token, Claude Opus 5.5
 const PRICE = { input: 4e-6, output: 20e-6, cacheWrite: 5e-6, cacheRead: 0.2e-6 }
 
-for (const d of ['sessions', 'intakes', 'usage']) mkdirSync(join(DATA, d), { recursive: true })
+for (const d of ['sessions', 'intakes', 'plans', 'usage']) mkdirSync(join(DATA, d), { recursive: true })
 const client = new Anthropic()
 const page = readFileSync(join(here, 'public', 'index.html'), 'utf8')
 // The kiosk kit (~/Code/kiosk-pattern), vendored beside the page
@@ -67,7 +68,69 @@ function allowNew(ip: string) {
 const busy = new Set<string>()
 
 function view(s: Session) {
-  return { id: s.id, step: s.wall.step, steps: STEP_NAMES, wall: s.wall, chat: s.chat, done: s.wall.step === 5, contacted: !!s.contact }
+  return {
+    id: s.id, step: s.wall.step, steps: STEP_NAMES, wall: s.wall, chat: s.chat, done: s.wall.step === 5,
+    contacted: !!s.contact, consent: !!s.contact?.consent, plan: s.contact ? readPlan(s.id) : null,
+  }
+}
+
+/* ---------- the flight plan the founder sees at the end ---------- */
+const planPath = (id: string) => join(DATA, 'plans', `${id}.json`)
+const readPlan = (id: string): Report | null => existsSync(planPath(id)) ? JSON.parse(readFileSync(planPath(id), 'utf8')).report : null
+
+/** What the facilitator's report run starts from: the wall, and the flight plan the founder saw when there is one. */
+function writeIntake(id: string) {
+  const s = load(id)
+  if (!s?.contact) return
+  const { name, email, consent } = s.contact
+  const plan = readPlan(id)
+  writeFileSync(join(DATA, 'intakes', `${id}.json`), JSON.stringify({
+    consent, report: toReport(s.wall, { name, email }), unknowns: s.wall.unknowns,
+    ...(plan ? { plan: { ...plan, founder: { name, email } } } : {}),
+  }, null, 2))
+}
+
+/** Cut stories and releases from a finished wall, checked against the release rules; one retry with the broken rules. */
+async function cutPlan(s: Session): Promise<Report | null> {
+  if (existsSync(planPath(s.id))) return readPlan(s.id)
+  if (spent() >= DAILY_USD) return null
+  const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: cutPrompt(s.wall) }]
+  let usd = 0
+  for (let round = 0; round < 2; round++) {
+    const msg = await client.beta.messages.stream({
+      model: MODEL,
+      max_tokens: 16000,
+      output_config: { effort: 'medium', format: { type: 'json_schema', schema: CUT_SCHEMA } },
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
+      system: CUT_SYSTEM,
+      messages,
+    }).finalMessage()
+    usd += cost(msg.usage)
+    spend(cost(msg.usage))
+    if (msg.stop_reason !== 'end_turn') break
+    const text = msg.content.flatMap(b => b.type === 'text' ? [b.text] : []).join('')
+    const { report, errors } = fromCut(s.wall, JSON.parse(text) as Cut, { name: '', email: '' })
+    if (!errors.length) {
+      writeFileSync(planPath(s.id), JSON.stringify({ usd, at: new Date().toISOString(), report }))
+      writeIntake(s.id)
+      return report
+    }
+    messages.push({ role: 'assistant', content: msg.content }, { role: 'user', content: `That breaks the release rules:\n${errors.join('\n')}\nCut it again, fixing these.` })
+  }
+  console.error(s.id, 'no valid flight plan')
+  return null
+}
+
+const cutting = new Map<string, Promise<Report | null>>()
+/** The flight plan, cut once: started as the founder reaches the end, awaited when they leave their email. */
+function planFor(s: Session) {
+  let p = cutting.get(s.id)
+  if (!p) {
+    p = cutPlan(s).catch(err => { console.error(s.id, 'cut', err); return null }).finally(() => cutting.delete(s.id))
+    cutting.set(s.id, p)
+  }
+  return p
 }
 
 async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
@@ -179,6 +242,8 @@ const server = createServer(async (req, res) => {
         s.turns++
         await turn(s, said, send)
         send({ type: 'end', ...view(s) })
+        // the turn may have moved the wall on to the end
+        if ((s.wall.step as number) === 5) void planFor(s)
       } catch (err) {
         console.error(s.id, err)
         // Drop the unanswered founder message so the conversation stays well-formed.
@@ -202,7 +267,9 @@ const server = createServer(async (req, res) => {
       if (!n || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return json(res, 400, { error: 'Add your name and an email we can send your report to.' })
       s.contact = { name: n, email: e, consent: consent === true, at: new Date().toISOString() }
       save(s)
-      writeFileSync(join(DATA, 'intakes', `${s.id}.json`), JSON.stringify({ consent: s.contact.consent, report: toReport(s.wall, { name: n, email: e }), unknowns: s.wall.unknowns }, null, 2))
+      writeIntake(s.id)
+      // The thinking holds while the flight plan is cut, if it isn't ready yet; past two minutes it shows up on their next visit.
+      if (s.wall.step === 5) await Promise.race([planFor(s), new Promise(r => setTimeout(r, 120_000))])
       return json(res, 200, view(s))
     }
 
@@ -219,9 +286,9 @@ function admin(url: URL, res: ServerResponse) {
   const key = Buffer.from(url.searchParams.get('key') ?? '')
   const want = Buffer.from(ADMIN_KEY)
   if (!ADMIN_KEY || key.length !== want.length || !timingSafeEqual(key, want)) return json(res, 403, { error: 'Forbidden' })
-  const m = url.pathname.match(/^\/admin\/(session|intake)\/([A-Za-z0-9_-]{22})\.json$/)
+  const m = url.pathname.match(/^\/admin\/(session|intake|plan)\/([A-Za-z0-9_-]{22})\.json$/)
   if (m) {
-    const file = m[1] === 'session' ? sessionPath(m[2]) : join(DATA, 'intakes', `${m[2]}.json`)
+    const file = m[1] === 'session' ? sessionPath(m[2]) : m[1] === 'plan' ? planPath(m[2]) : join(DATA, 'intakes', `${m[2]}.json`)
     if (!existsSync(file)) return json(res, 404, { error: 'Not found' })
     res.writeHead(200, { 'content-type': 'application/json', 'content-disposition': `attachment; filename="${m[2]}.${m[1]}.json"` })
     return res.end(readFileSync(file))
@@ -232,7 +299,7 @@ function admin(url: URL, res: ServerResponse) {
     .sort((a, b) => b.updated.localeCompare(a.updated))
     .map(s => `<tr><td>${esc(s.updated.slice(0, 16).replace('T', ' '))}</td><td>${esc(s.contact?.name ?? '—')}<br><small>${esc(s.contact?.email ?? '')}${s.contact?.consent ? ' ✓ consent' : ''}</small></td>
       <td>${esc(s.wall.product?.name ?? '—')}</td><td>${s.wall.step} ${STEP_NAMES[s.wall.step]}</td><td>${s.turns}</td><td>$${s.usd.toFixed(2)}</td>
-      <td><a href="/admin/session/${s.id}.json?key=${k}">transcript</a>${s.contact ? ` · <a href="/admin/intake/${s.id}.json?key=${k}">intake</a>` : ''}</td></tr>`).join('')
+      <td><a href="/admin/session/${s.id}.json?key=${k}">transcript</a>${s.contact ? ` · <a href="/admin/intake/${s.id}.json?key=${k}">intake</a>` : ''}${existsSync(planPath(s.id)) ? ` · <a href="/admin/plan/${s.id}.json?key=${k}">flight plan</a>` : ''}</td></tr>`).join('')
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
   res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Coach Admin</title>
 <style>body{font:15px/1.5 system-ui;margin:24px;color:#141C26;background:#fff}table{border-collapse:collapse;width:100%}td,th{padding:8px;border-bottom:1px solid #ddd;text-align:left;vertical-align:top}small{color:#56636F}
