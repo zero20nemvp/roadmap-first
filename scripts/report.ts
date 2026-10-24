@@ -8,10 +8,12 @@ import { check, fromIntake, renderReport, type Intake, type Report } from '../we
 
 const args = process.argv.slice(2)
 if (args[0] === '--seed') {
-  const intake = JSON.parse(readFileSync(args[1], 'utf8')) as Intake
+  // Either the coach's intake ({consent, report, unknowns}) or the form's (one item per line).
+  const intake = JSON.parse(readFileSync(args[1], 'utf8')) as Intake | { consent: boolean; report: Report }
   if (!intake.consent) console.error('note: this founder did not tick consent, so no follow-up emails')
   const out = args[2] ?? args[1].replace(/(\.intake)?\.json$/, '.report.json')
-  writeFileSync(out, JSON.stringify(fromIntake(intake), null, 2) + '\n')
+  const seeded = 'report' in intake ? intake.report : fromIntake(intake)
+  writeFileSync(out, JSON.stringify(seeded, null, 2) + '\n')
   console.log(`seeded ${out}: add stories and releases, then render it`)
   process.exit(0)
 }
