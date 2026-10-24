@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+<meta name="theme-color" content="#0A151E">
+<link rel="icon" href="data:,">
+<title>Roadmap-first coach</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/kiosk.css">
+<style>
+html,body{height:100%;margin:0;overflow:hidden;background:#0A151E}
+/* The roadmap as one long page, rising over the kiosk; back and Escape return to the flow */
+.roadmap{position:fixed;inset:0;z-index:50;background:#0E1116;opacity:0;transform:translateY(28px) scale(.985);transition:opacity .45s cubic-bezier(.25,1,.35,1),transform .55s cubic-bezier(.25,1,.35,1)}
+.roadmap.open{opacity:1;transform:none}
+.roadmap iframe{border:0;width:100%;height:100%;display:block}
+.roadmap nav{position:fixed;top:16px;left:16px;right:16px;display:flex;justify-content:space-between;gap:12px;pointer-events:none}
+.roadmap nav>*{pointer-events:auto;font:400 12px/1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.04em;color:#CFE3EE;background:rgba(10,21,30,.82);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:10px 14px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);cursor:pointer;text-decoration:none}
+.roadmap nav>*:hover{border-color:rgba(120,210,255,.5)}
+@media (max-width:520px){.roadmap nav a{display:none}}
+</style>
+</head>
+<body>
+<script type="module">
+// The coach on the kiosk kit (kiosk.js, from ~/Code/kiosk-pattern): this file is only what the coach says and means.
+import { mount } from '/kiosk.js'
+
+let state = null   // the server's view: id, step, steps, wall, chat, done, contacted
+let contact = null // the end: { stage: 'name' | 'email' | 'consent', name, email }
+
+/** This browser's id: the server counts new conversations per browser, not per venue wifi. */
+const browser = (() => {
+  try {
+    let b = localStorage.getItem('coach-browser')
+    if (!b) localStorage.setItem('coach-browser', b = crypto.randomUUID())
+    return b
+  } catch { return crypto.randomUUID() }
+})()
+
+async function post(path, data) {
+  const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) })
+  const v = await r.json().catch(() => ({ error: 'Something went wrong. Try again.' }))
+  if (!r.ok) throw Object.assign(new Error(v.error), { code: v.code })
+  return v
+}
+
+const counts = w => [[w.problems, 'problem'], [w.workarounds, 'workaround'], [w.jobs, 'job'], [w.features, 'feature'], [w.unknowns, 'parked']]
+  .filter(([a]) => a.length).map(([a, n]) => `${a.length} ${n === 'parked' ? n : n + (a.length > 1 ? 's' : '')}`).join(' · ')
+const hasWall = () => !!(state && (state.wall.product?.name || counts(state.wall)))
+
+function status() {
+  if (!state) return ''
+  if (state.contacted) return state.plan ? 'enter to walk your roadmap · /roadmap for the report · /new to start again' : 'enter to see your roadmap · /new to start again'
+  if (state.done) return 'the four steps are done · your report is next'
+  const c = counts(state.wall)
+  const where = state.step === 0 ? 'getting started' : `step ${state.step} of 4 · ${state.steps[state.step].toLowerCase()}`
+  return [where, c, hasWall() ? '/wall' : ''].filter(Boolean).join(' · ')
+}
+
+/** One founder turn: the reply streams in as NDJSON while the balls bounce. */
+async function ask(text, out) {
+  const r = await fetch('/api/turn', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: state.id, text }) })
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw Object.assign(new Error(e.error || 'Something went wrong. Try again.'), { code: e.code }) }
+  const reader = r.body.getReader(), dec = new TextDecoder()
+  let buf = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buf += dec.decode(value, { stream: true })
+    let nl
+    while ((nl = buf.indexOf('\n')) >= 0) {
+      const e = JSON.parse(buf.slice(0, nl)); buf = buf.slice(nl + 1)
+      if (e.type === 'text') out.write(e.delta)
+      else if (e.type === 'wall' || e.type === 'end') state = e
+      else if (e.type === 'error') throw new Error(e.error)
+    }
+  }
+}
+
+function exchanges() {
+  const c = state?.chat || [], out = []
+  c.forEach((m, i) => { if (m.role === 'coach') out.push({ echo: c[i - 1]?.role === 'founder' ? c[i - 1].text : '', text: m.text }) })
+  return out
+}
+
+/* ---------- the wall ---------- */
+function openWall(k) {
+  if (!hasWall()) return k.note('said', 'Nothing on your wall yet: it fills as you answer.')
+  const w = state.wall, items = []
+  const cap = s => s ? s[0].toUpperCase() + s.slice(1) : ''
+  if (w.product?.name) items.push({ title: w.product.name, stamp: 'product', text: [w.product.who && `For ${w.product.who}.`, cap(w.product.pitch)].filter(Boolean).join(' '), dot: 'var(--dim)' })
+  for (const x of w.problems) items.push({ title: `${x.id} · problem`, stamp: 'step 1', text: x.text, dot: 'var(--bad)' })
+  for (const x of w.workarounds) items.push({ title: `${x.id} · workaround for ${x.problem}`, stamp: 'step 2', text: x.text + (x.pays ? ` · pays ${x.pays}` : ''), dot: 'var(--warn)' })
+  for (const x of w.jobs) items.push({ title: `${x.id} · job${x.from ? ' from ' + x.from : ''}`, stamp: 'step 3', text: `When ${x.when}, I want ${x.want}, so ${x.so}.`, dot: 'var(--mine)' })
+  for (const x of w.features) items.push({ title: `${x.id} · feature for ${x.job}`, stamp: 'step 4', text: x.name, dot: 'var(--live)' })
+  for (const x of w.unknowns) items.push({ title: `${x.id} · parked to test`, text: x.text, dot: 'var(--faint)' })
+  k.list(items, { title: 'your wall' })
+}
+
+/* ---------- the roadmap, played back at the end ---------- */
+const monthName = m => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+const releaseName = r => r.id === 'GZ' ? 'Ground Zero' : `Release ${r.id.slice(1)}`
+const cap = s => s ? s[0].toUpperCase() + s.slice(1) : ''
+
+function showRoadmap(k, { at = 0 } = {}) {
+  const w = state.wall, p = state.plan, steps = []
+  const byId = xs => Object.fromEntries(xs.map(x => [x.id, x]))
+  const jobs = byId(w.jobs), features = byId(w.features)
+  steps.push({ title: 'your roadmap', text: [
+    w.product?.name ? `${w.product.name}${p?.product.pitch ? `: ${p.product.pitch.replace(/\.$/, '')}` : ''}, for ${w.product.who}.` : '',
+    'This is what you worked out today, one screen at a time.',
+  ].filter(Boolean).join('\n\n') })
+  if (w.problems.length) steps.push({ title: 'the problems your customer has', items: w.problems.map(x => ({ title: x.id, text: x.text, dot: 'var(--bad)' })) })
+  if (w.workarounds.length) steps.push({ title: 'what they do about them today', items: w.workarounds.map(x => ({ title: `${x.id} · for ${x.problem}`, stamp: x.pays ? `pays ${x.pays}` : '', text: x.text, dot: 'var(--warn)' })) })
+  if (w.jobs.length) steps.push({ title: 'the jobs they’re really trying to get done', items: w.jobs.map(x => ({ title: `When ${x.when}`, text: `I want ${x.want}, so ${x.so}.`, dot: 'var(--mine)' })) })
+  if (w.features.length) steps.push({ title: 'what your product needs to do them', items: w.features.map(x => ({ title: `${x.id} · for ${x.job}`, text: x.name, dot: 'var(--live)' })) })
+  if (p) {
+    const stories = byId(p.stories)
+    const shipped = r => [...new Set(r.stories.map(s => features[stories[s]?.feature]?.name).filter(Boolean))]
+    steps.push({ title: 'your flight plan', items: p.releases.map(r => ({
+      title: releaseName(r), stamp: monthName(r.month),
+      text: `${r.completes.map(j => jobs[j]?.want).filter(Boolean).map(cap).join('. ')}.${r.price ? ` Billable: ${r.price}.` : ` ${shipped(r).length} feature${shipped(r).length > 1 ? 's' : ''}.`}`,
+      dot: r.id === 'GZ' ? 'var(--mine)' : 'var(--dim)',
+    })) })
+    // each release: the features it ships, each with the stories that ship in it
+    for (const r of p.releases) {
+      const shipping = r.stories.map(id => stories[id]).filter(Boolean)
+      steps.push({ title: `${releaseName(r).toLowerCase()} · ${monthName(r.month)}`, items: [...new Set(shipping.map(s => s.feature))].map(f => ({
+        title: features[f]?.name || f, text: shipping.filter(s => s.feature === f).map(s => s.text.replace(/\.?$/, '.')).join(' '),
+        dot: r.id === 'GZ' ? 'var(--mine)' : 'var(--dim)',
+      })) })
+    }
+  }
+  steps.push({ title: 'from here', text: [
+    p ? `Ground Zero is the first thing to build: the smallest release that gets one job done for your customer, end to end.${p.releases[0]?.price ? ' And they already pay for a way round it.' : ''}` : 'Your flight plan, from Ground Zero, is being cut by your facilitator.',
+    state.consent ? 'Your full report is coming by email: every story, and the flight plan, tidied by your facilitator.' : 'Your facilitator has all of this, and turns it into your full report.',
+    p ? 'Press enter to open your roadmap as a website: all of it, on one page you can keep.' : '',
+    'Another product, or another customer? Type /new to start a new conversation.',
+  ].filter(Boolean).join('\n\n') })
+  k.tour(steps, {
+    title: 'your roadmap', at,
+    end: p ? 'enter for your roadmap website' : 'enter to finish',
+    // the last screen is the whole roadmap as one long page; leaving it comes back into the flow
+    done: k => p ? openPage(() => showRoadmap(k, { at: -1 })) : k.note('said', 'enter to see it again · /new to start a new conversation'),
+  })
+}
+
+/* ---------- the roadmap as one long page, over the kiosk ---------- */
+const sheet = document.createElement('div')
+sheet.className = 'roadmap'; sheet.hidden = true
+sheet.innerHTML = '<iframe title="Your roadmap"></iframe><nav><button type="button">← back to the flow · esc</button><a target="_blank" rel="noopener">open as its own page ↗</a></nav>'
+document.body.append(sheet)
+const frame = sheet.querySelector('iframe')
+let afterPage = null
+
+function openPage(then) {
+  const url = `/roadmap/${state.id}`
+  if (frame.getAttribute('src') !== url) frame.src = url
+  sheet.querySelector('a').href = url
+  afterPage = then
+  sheet.hidden = false
+  requestAnimationFrame(() => requestAnimationFrame(() => { sheet.classList.add('open'); frame.contentWindow?.focus() }))
+}
+
+function closePage() {
+  if (sheet.hidden || !sheet.classList.contains('open')) return
+  sheet.classList.remove('open')
+  setTimeout(() => { sheet.hidden = true }, 450)
+  const then = afterPage; afterPage = null
+  k.root.querySelector('textarea').focus({ preventScroll: true }) // keys belong to the kiosk again
+  then?.()
+}
+
+sheet.querySelector('button').onclick = closePage
+addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden) { e.preventDefault(); e.stopImmediatePropagation(); closePage() } }, true)
+// Escape inside the page (it's ours, same origin) comes back too
+frame.addEventListener('load', () => {
+  try {
+    frame.contentWindow.addEventListener('keydown', e => { if (e.key === 'Escape') closePage() })
+    // room above the roadmap's first line for the back button
+    const room = frame.contentDocument.createElement('style')
+    room.textContent = '.hero{padding-top:72px}'
+    frame.contentDocument.head.append(room)
+    frame.contentWindow.focus()
+  } catch {}
+})
+
+/* ---------- starting again ---------- */
+let restarting = false
+
+/** /new: straight away once they're done; mid-way, one screen asks first. */
+async function askNew(k) {
+  if (state?.contacted || !(state?.chat.length > 1)) return startNew(k)
+  restarting = true
+  await k.say('Start a new conversation? This one stays with your facilitator, but you can’t come back to it from here.', { status: 'start again · enter or yes · esc or no' })
+}
+
+async function keepThis(k) {
+  restarting = false
+  const last = exchanges().at(-1)
+  await k.resume(last.echo, last.text)
+  if (state.done && !state.contacted) beginContact()
+}
+
+async function startNew(k) {
+  restarting = false
+  try { state = await post('/api/session', { browser }) } catch (e) { return k.note('err', e.message) }
+  try { localStorage.setItem('coach-session', state.id) } catch {}
+  contact = null
+  await k.reset()
+}
+
+/* ---------- the end: name, email, consent, one screen each ---------- */
+function beginContact() {
+  contact = { stage: 'name' }
+  k.note('said', 'your name, for the report')
+}
+
+async function contactStep(text) {
+  if (contact.stage === 'name') {
+    if (!text) return k.note('said', 'your name, for the report')
+    contact = { stage: 'email', name: text.slice(0, 120) }; k.clear()
+    await k.say(`Thank you, ${contact.name.split(/\s+/)[0]}. Which email should your report go to?`, { echo: text, status: 'your report · 2 of 3' })
+    return k.note()
+  }
+  if (contact.stage === 'email') {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) return k.note('err', 'That doesn’t look like an email. Try it again.')
+    contact = { ...contact, stage: 'consent', email: text }; k.clear()
+    await k.say('May we email you your report, with your flight plan from Ground Zero, and three short follow-ups about it?', { echo: text, status: 'your report · 3 of 3 · enter or yes · esc or no' })
+    return k.note()
+  }
+  const t = text.toLowerCase()
+  if (t && !/^(y|n)/.test(t)) return k.note('err', 'Yes or no: enter for yes, escape for no.')
+  return finish(!t || t.startsWith('y'))
+}
+
+async function finish(consent) {
+  const { name, email } = contact, first = name.split(/\s+/)[0]
+  contact = null
+  await k.flight(consent ? 'yes' : 'no', async out => {
+    try { state = await post('/api/contact', { id: state.id, name, email, consent }) }
+    catch (e) { contact = { stage: 'consent', name, email }; throw e }
+    out.write([
+      consent ? `Thank you, ${first}. Your report is on its way to ${email}.` : `Thank you, ${first}. We won’t email you, and what you worked out is saved with your facilitator.`,
+      state.plan ? 'Before you go, here is your roadmap, and your flight plan from Ground Zero. Press enter to walk through it.' : 'Before you go, here is your roadmap. Press enter to walk through it.',
+    ].join('\n\n'))
+  })
+}
+
+/* ---------- the kiosk ---------- */
+const k = mount({
+  invite: 'What are you building, and who is it for?',
+  hint: 'roadmap-first coach · one question at a time · the answers are yours',
+  ask, status, history: exchanges,
+  statusAction: () => state?.contacted ? () => showRoadmap(k) : hasWall() ? () => openWall(k) : null,
+  commands: [
+    { name: '/wall', hint: 'what you’ve said so far, step by step', run: openWall, when: hasWall },
+    // offered only once there's a report to show: the four steps done, the email left, the flight plan cut
+    { name: '/roadmap', hint: 'your roadmap report, with the flight plan', run: () => openPage(null), when: () => !!(state?.contacted && state.plan) },
+    { name: '/new', hint: 'start a new conversation', run: askNew, when: () => state?.chat.length > 1 },
+  ],
+  intercept: async text => {
+    if (restarting) {
+      const t = text.toLowerCase()
+      if (t && !/^(y|n)/.test(t)) { k.note('err', 'Yes or no: enter for yes, escape for no.'); return true }
+      k.clear()
+      await (!t || t.startsWith('y') ? startNew(k) : keepThis(k))
+      return true
+    }
+    if (contact) { await contactStep(text); return true }
+    if (state?.contacted) { if (text) k.note('said', 'You’re done with this one. Press enter to see your roadmap again, or type /new to start a new conversation.'); else showRoadmap(k); return true }
+    if (state?.done && text) { beginContact(); await contactStep(text); return true }
+    return false
+  },
+  escape: () => {
+    if (restarting) { keepThis(k); return true }
+    if (contact?.stage === 'consent') { finish(false); return true } return false },
+  after: () => { if (state.done && !state.contacted && !contact) beginContact() },
+  onError: e => { if (e.code === 'contact' && !contact) beginContact() },
+})
+
+let id = null
+try { id = localStorage.getItem('coach-session') } catch {}
+try {
+  state = await post('/api/session', { id, browser })
+  try { localStorage.setItem('coach-session', state.id) } catch {}
+  if (state.contacted) await k.resume('', `Thank you. Your report is with your facilitator${state.consent ? ', and on its way to you' : ''}.\n\nPress enter to walk through your roadmap${state.plan ? ' and flight plan' : ''} again.`)
+  else if (state.chat.length > 1) { const last = exchanges().at(-1); await k.resume(last.echo, last.text) }
+  else k.invite()
+  if (state.done && !state.contacted) beginContact()
+} catch (e) {
+  k.note('err', e.message || 'The coach can’t be reached. Reload to try again.')
+}
+</script>
+</body>
+</html>

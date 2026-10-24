@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Roadmap-First Intake</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* One page, top to bottom: who you are, your product, then problems → workarounds → jobs → features, then consent */
+:root{
+  --bg:#EDF0F3; --surface:#FFFFFF; --ink:#141C26; --muted:#56636F; --line:#D2D9E0;
+  --accent:#1F4FE0; --flag:#D93A3F; --ok:#1E8A4C;
+  --yellow:#FFE45C; --blue:#9AD6FF; --pink:#FF9DBB;
+  --f-display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body:"Instrument Sans", "Helvetica Neue", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1319; --surface:#161D26; --ink:#E7ECF1; --muted:#97A4B1; --line:#2A3542;
+  --accent:#7D9CFF; --flag:#FF6E72; --ok:#5BD08B; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1319; --surface:#161D26; --ink:#E7ECF1; --muted:#97A4B1; --line:#2A3542;
+  --accent:#7D9CFF; --flag:#FF6E72; --ok:#5BD08B; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--f-body)}
+.wrap{max-width:720px;margin:0 auto;padding:40px max(16px,env(safe-area-inset-left,0px)) 64px}
+h1,h2{font-family:var(--f-display);letter-spacing:-.02em;margin:0;text-wrap:balance}
+h1{font-size:clamp(36px,7vw,56px);line-height:.95;font-weight:800}
+h2{font-size:22px;font-weight:700}
+p{margin:0}
+.eyebrow{font:600 12px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+.eyebrow b{color:var(--accent)}
+.lede{color:var(--muted);margin-top:12px;max-width:56ch}
+form{display:grid;gap:18px;margin-top:32px}
+fieldset{border:0;margin:0;padding:20px;background:var(--surface);border:1px solid var(--line);border-radius:10px;display:grid;gap:14px;border-left:6px solid var(--c,var(--line))}
+fieldset.p{--c:var(--pink)} fieldset.y{--c:var(--yellow)} fieldset.b{--c:var(--blue)}
+legend{display:contents}
+.step{font:600 12px/1 var(--f-mono);color:var(--muted);letter-spacing:.08em}
+label{display:grid;gap:6px;font-weight:600}
+label small{font-weight:400;color:var(--muted)}
+input[type=text],input[type=email],textarea{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 12px;width:100%}
+textarea{min-height:110px;resize:vertical}
+input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.consent{display:flex;gap:10px;align-items:flex-start;font-weight:500}
+.consent input{margin-top:4px;width:18px;height:18px}
+button{font:600 16px/1 var(--f-body);background:var(--accent);color:#fff;border:0;border-radius:8px;padding:14px 18px;cursor:pointer}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.err{color:var(--flag);font-weight:600}
+#done{display:none;margin-top:32px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;gap:14px}
+#done.on{display:grid}
+#done .actions{display:flex;flex-wrap:wrap;gap:10px}
+@media (max-width:560px){.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow"><b>021</b> · roadmap-first workshop</p>
+  <h1>Start from the problem</h1>
+  <p class="lede">Tell us what's annoying, slow or expensive for your customer. We'll turn it into jobs, features, stories and a flight plan of releases, and send you your own report.</p>
+
+  <form id="intake" novalidate>
+    <fieldset>
+      <legend><span class="step">YOU</span></legend>
+      <div class="row">
+        <label>Your name <input type="text" name="name" autocomplete="name" required></label>
+        <label>Email <input type="email" name="email" autocomplete="email" required></label>
+      </div>
+      <label>Your product <small>A name, or a few words if it hasn't got one</small><input type="text" name="product" required></label>
+      <label>Who it's for <small>The customer, as specific as you can</small><input type="text" name="who"></label>
+    </fieldset>
+
+    <fieldset class="p">
+      <legend><span class="step">1 · PROBLEMS</span></legend>
+      <label>What is annoying, slow or expensive for your customer right now? <small>One per line</small><textarea name="problems" required></textarea></label>
+    </fieldset>
+
+    <fieldset class="y">
+      <legend><span class="step">2 · WORKAROUNDS</span></legend>
+      <label>What do they do about it today? <small>One per line, in the same order as the problems. Say if they pay for it, and how much.</small><textarea name="workarounds"></textarea></label>
+    </fieldset>
+
+    <fieldset class="y">
+      <legend><span class="step">3 · JOBS</span></legend>
+      <label>So what are they really trying to get done? <small>One per line. Leave it blank if you're not sure; we'll work it out from the workarounds.</small><textarea name="jobs"></textarea></label>
+    </fieldset>
+
+    <fieldset class="b">
+      <legend><span class="step">4 · FEATURES</span></legend>
+      <label>What does your product need to do that job? <small>One per line</small><textarea name="features"></textarea></label>
+    </fieldset>
+
+    <label class="consent"><input type="checkbox" name="consent"> Send me my report and follow-up emails.</label>
+    <p class="err" id="err" role="alert"></p>
+    <button type="submit">Send my answers</button>
+  </form>
+
+  <section id="done" aria-live="polite">
+    <h2 id="done-title">Thanks, that's in</h2>
+    <p id="done-text"></p>
+    <div class="actions">
+      <button type="button" id="mail" hidden>Email my answers</button>
+      <button type="button" class="ghost" id="copy">Copy my answers</button>
+      <button type="button" class="ghost" id="save">Download my answers</button>
+    </div>
+  </section>
+</div>
+
+<script>
+// Where a submission goes: the artifact's shared database when the viewer can write to it,
+// otherwise an email to the facilitator (?to=address) or a copy the founder hands over.
+const form = document.getElementById('intake')
+const err = document.getElementById('err')
+const done = document.getElementById('done')
+const to = new URLSearchParams(location.search).get('to') || ''
+let dbReady = null
+try { dbReady = window.claude?.use ? window.claude.use('db') : null } catch { dbReady = null }
+
+const lines = s => s.split('\n').map(x => x.trim()).filter(Boolean)
+
+function collect() {
+  const f = new FormData(form)
+  const v = k => String(f.get(k) || '').trim()
+  return {
+    name: v('name'), email: v('email'), consent: f.get('consent') === 'on',
+    product: v('product'), who: v('who'),
+    problems: v('problems'), workarounds: v('workarounds'), jobs: v('jobs'), features: v('features'),
+    submittedAt: new Date().toISOString(),
+  }
+}
+
+function invalid(i) {
+  if (!i.name) return 'Add your name.'
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(i.email)) return 'Add an email we can send your report to.'
+  if (!i.product) return 'Name your product, even roughly.'
+  if (!lines(i.problems).length) return 'Add at least one problem: that is where the workshop starts.'
+  return ''
+}
+
+const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'founder'
+
+async function saveToDb(i) {
+  const db = dbReady ? await Promise.race([dbReady, new Promise(r => setTimeout(() => r(null), 4000))]) : null
+  if (!db) return false
+  try {
+    // One doc per signed-in founder, keyed by their id: they can write only their own, and only the owner reads them all.
+    const user = await window.claude.use('user')
+    const id = user && await user.id()
+    if (!id) return false
+    await db.collection('intakes').doc(id).set(i)
+    return true
+  } catch { return false }
+}
+
+let last = null
+form.addEventListener('submit', async e => {
+  e.preventDefault()
+  const i = collect()
+  const problem = invalid(i)
+  err.textContent = problem
+  if (problem) return
+  last = i
+  form.querySelector('button[type=submit]').disabled = true
+  const saved = await saveToDb(i)
+  form.hidden = true
+  done.classList.add('on')
+  const text = document.getElementById('done-text')
+  const mail = document.getElementById('mail')
+  if (saved) {
+    text.textContent = `Your answers are with the facilitator. Your report link will come to ${i.email}.`
+  } else if (to) {
+    mail.hidden = false
+    text.textContent = 'One more step: press Email my answers to send them to the facilitator.'
+  } else {
+    document.getElementById('done-title').textContent = 'Nearly there'
+    text.textContent = 'Copy or download your answers and hand them to the facilitator.'
+  }
+  done.scrollIntoView({ behavior: 'smooth' })
+})
+
+const asJson = () => JSON.stringify(last, null, 2)
+document.getElementById('mail').addEventListener('click', () => {
+  location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(`Roadmap-first intake: ${last.product}`)}&body=${encodeURIComponent(asJson())}`
+})
+document.getElementById('copy').addEventListener('click', async e => {
+  try { await navigator.clipboard.writeText(asJson()); e.target.textContent = 'Copied' } catch { e.target.textContent = 'Copy failed: use Download' }
+})
+document.getElementById('save').addEventListener('click', async e => {
+  const filename = `${slug(last.name)}.intake.json`
+  // Inside claude.ai the viewer hands over files; on any other host a plain link does.
+  const downloads = window.claude?.use ? await window.claude.use('downloads').catch(() => null) : null
+  if (downloads) {
+    try { await downloads.save({ filename, data: asJson() }) } catch { e.target.textContent = 'Not saved: use Copy' }
+    return
+  }
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(new Blob([asJson()], { type: 'application/json' }))
+  a.download = filename
+  a.click()
+})
+</script>
+</body>
+</html>
