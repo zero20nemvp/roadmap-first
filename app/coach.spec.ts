@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { readFileSync } from 'node:fs'
 import { check } from '../web/report.ts'
 import { renderRoadmap } from '../web/roadmap.ts'
-import { apply, CUT_SCHEMA, cutPrompt, emptyWall, fromCut, gaps, live, settle, summary, toReport, TOOLS, trash, untrash } from './coach.ts'
+import { apply, CUT_SCHEMA, cutPrompt, emptyWall, fromCut, gaps, live, migrate, settle, summary, toReport, TOOLS, trash, untrash } from './coach.ts'
 
 test('the end of a conversation renders as the roadmap website, in v2 words only', () => {
   const template = readFileSync(new URL('../web/roadmap.template.html', import.meta.url), 'utf8')
@@ -173,4 +173,58 @@ test('every tool is strict, with every property required', () => {
     assert.deepEqual(t.input_schema.required, Object.keys(t.input_schema.properties))
     assert.equal(t.input_schema.additionalProperties, false)
   }
+})
+
+test('ground zero: one job, every feature argued with a reason, at least one kept, and a month', () => {
+  const w = walked()
+  apply(w, 'add_feature', { job: 'J1', name: 'Accounts' })
+  apply(w, 'add_job', { when: 'the doors open', want: 'to check guests in', so: 'the queue moves', from: null })
+  apply(w, 'add_feature', { job: 'J2', name: 'QR scan' })
+  assert.ok(apply(w, 'go_to_step', { step: 5 }).ok)
+  assert.equal(apply(w, 'go_to_step', { step: 6 }).ok, false, 'not argued yet')
+  assert.match(gaps(w, 5)[0], /not chosen/)
+  assert.equal(apply(w, 'choose_job', { job: 'J9' }).ok, false)
+  assert.ok(apply(w, 'choose_job', { job: 'J1' }).ok)
+  assert.equal(gaps(w, 5).length, 3, 'F1 and F2 to argue, and the month')
+  assert.equal(apply(w, 'decide', { feature: 'F3', keep: true, reason: 'x' }).ok, false, 'F3 is another job’s')
+  assert.equal(apply(w, 'decide', { feature: 'F2', keep: false, reason: '' }).ok, false, 'a reason is needed')
+  assert.ok(apply(w, 'decide', { feature: 'F2', keep: false, reason: 'they buy as guests the first time' }).ok)
+  assert.ok(apply(w, 'decide', { feature: 'F1', keep: false, reason: 'testing' }).ok)
+  assert.match(gaps(w, 5).join(' '), /keeps no feature/)
+  apply(w, 'decide', { feature: 'F1', keep: true, reason: 'no checkout, no sale' })
+  assert.equal(apply(w, 'set_month', { month: '2001-01' }).ok, false, 'in the past')
+  assert.equal(apply(w, 'set_month', { month: 'soon' }).ok, false)
+  assert.ok(apply(w, 'set_month', { month: '2099-03' }).ok)
+  assert.deepEqual(gaps(w, 5), [])
+  assert.match(summary(w), /F2 later: they buy as guests/)
+  assert.ok(apply(w, 'go_to_step', { step: 6 }).ok)
+  // trashing ground zero's job takes its features with it, and opens the steps again
+  trash(w, 'J1'); settle(w)
+  assert.equal(w.step, 5)
+  assert.match(gaps(w, 5)[0], /not chosen/)
+})
+
+test('ground zero as argued holds the cut', () => {
+  const w = walked()
+  apply(w, 'add_feature', { job: 'J1', name: 'Accounts' })
+  apply(w, 'choose_job', { job: 'J1' })
+  apply(w, 'decide', { feature: 'F1', keep: true, reason: 'no checkout, no sale' })
+  apply(w, 'decide', { feature: 'F2', keep: false, reason: 'guests first' })
+  apply(w, 'set_month', { month: '2099-03' })
+  assert.match(cutPrompt(w), /argued Ground Zero down: it completes J1, in 2099-03, with F1\. They moved F2/)
+  const stories = [{ id: 'S1', feature: 'F1', text: 'A buyer can pay', done: 'a payment lands' }, { id: 'S2', feature: 'F2', text: 'A buyer can sign up', done: 'an account exists' }]
+  const good = fromCut(w, { pitch: 'p', stories, releases: [{ id: 'GZ', month: '2099-03', completes: ['J1'], stories: ['S1'], price: null }, { id: 'R1', month: '2099-05', completes: ['J1'], stories: ['S2'], price: null }] }, { name: 'A', email: 'a@x.io' })
+  assert.deepEqual(good.errors, [])
+  const bad = fromCut(w, { pitch: 'p', stories, releases: [{ id: 'GZ', month: '2099-04', completes: ['J1'], stories: ['S1', 'S2'], price: null }] }, { name: 'A', email: 'a@x.io' })
+  assert.ok(bad.errors.some(e => /F2 ships in Ground Zero/.test(e)))
+  assert.ok(bad.errors.some(e => /2099-03, the month/.test(e)))
+})
+
+test('a wall from before ground zero was argued keeps its end', () => {
+  const old = walked() as Partial<ReturnType<typeof walked>>
+  delete old.groundZero
+  old.step = 5 as never
+  const w = migrate(old as ReturnType<typeof walked>)
+  assert.equal(w.step, 6)
+  assert.deepEqual(w.groundZero, { job: null, month: null, argued: {} })
 })
