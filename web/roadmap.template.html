@@ -244,6 +244,7 @@ body{margin:0}
   <li><a href="#wall"><span>The wall</span><i></i></a></li>
   <li><a href="#size"><span>Size it</span><i></i></a></li>
   <li><a href="#pay"><span>Would they pay?</span><i></i></a></li>
+  <li id="argue-nav"><a href="#argue"><span>Argue it down</span><i></i></a></li>
   <li><a href="#roadmap"><span>Flipchart</span><i></i></a></li>
   <li><a href="#flight"><span>Flight plan</span><i></i></a></li>
   <li><a href="#stories"><span>Stories</span><i></i></a></li>
@@ -319,6 +320,18 @@ body{margin:0}
   <div class="scroll-x"><table>
     <thead><tr><th>Release</th><th>Gets this done</th><th>They pay today</th><th>Decision</th><th style="text-align:right">Stories</th></tr></thead>
     <tbody id="pay-rows"></tbody>
+  </table></div>
+</section>
+
+<section id="argue" data-sec>
+  <div class="head">
+    <div class="eyebrow"><b>Ground Zero</b> Argue it down</div>
+    <h2 id="argue-h">What Ground Zero keeps</h2>
+    <p class="lede">The coach played the visiting table and asked of every feature: could they still get the job done without it, and would they still pay? The decisions, and the reasons, are yours.</p>
+  </div>
+  <div class="scroll-x"><table>
+    <thead><tr><th>Feature</th><th>Your reason</th><th>Decision</th></tr></thead>
+    <tbody id="argued-rows"></tbody>
   </table></div>
 </section>
 
@@ -480,6 +493,16 @@ $("#pay-rows").innerHTML = R.releases.map(r => `<tr>
   <td class="q">${r.paysToday ? esc(r.paysToday) : "Nothing yet"}</td>
   <td><span class="pill ${r.paysToday ? "keep" : "move"}">${r.paysToday ? "Billable from day one" : "Prove they’d pay"}</span></td>
   <td class="saves">${r.stories}</td></tr>`).join("") || `<tr><td colspan="5" class="empty">No releases yet.</td></tr>`;
+
+// argue it down: what Ground Zero kept, and what it moved later, in the founder's words
+if (R.argued.length) {
+  const kept = R.argued.filter(a => a.keep).length
+  $("#argue-h").textContent = `Ground Zero keeps ${word(kept).toLowerCase()} of ${word(R.argued.length).toLowerCase()} feature${R.argued.length === 1 ? "" : "s"}`
+  $("#argued-rows").innerHTML = R.argued.map(a => `<tr>
+  <td><b>${esc(a.name)}</b><br><span class="mono" style="color:var(--muted);font-size:12px">${esc(a.feature)}</span></td>
+  <td class="q">${esc(a.reason)}</td>
+  <td><span class="pill ${a.keep ? "keep" : "move"}">${a.keep ? "Stays in Ground Zero" : "Moves later"}</span></td></tr>`).join("")
+} else { $("#argue").hidden = true; $("#argue-nav").hidden = true }
 
 // the flight plan, as the flipchart
 $("#flip-h").textContent = `${word(R.releases.length)} release${R.releases.length === 1 ? "" : "s"}, each building on the last`;

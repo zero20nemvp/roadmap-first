@@ -1,6 +1,6 @@
-# The coach: steps 1–4 as a conversation
+# The coach: steps 1–5 as a conversation
 
-A web app that runs the first four steps of the v2 workshop (problems → workarounds → jobs → features) as a consultative, Socratic conversation. Founders need only a browser and the link: **https://roadmap.zero2one.ee**
+A web app that runs the first five steps of the v2 workshop (problems → workarounds → jobs → features, then Ground Zero argued down) as a consultative, Socratic conversation. Founders need only a browser and the link: **https://roadmap.zero2one.ee**
 
 - `coach.ts`: the method (system prompt), the tools Claude records the wall with, and the gates between steps. Pure; `npm test` runs `coach.spec.ts`.
 - `auth.ts`: accounts by emailed code (see below). Pure plus files; `auth.spec.ts`.
@@ -15,9 +15,15 @@ A web app that runs the first four steps of the v2 workshop (problems → workar
 - **Conversations belong to the account.** Proving an email claims the conversation open in that browser (if anything was said in it) and any finished earlier with that email. `/conversations` lists them, Enter opens one, `t` trashes one. A conversation with an account answers only to its login; `/roadmap/<id>` and `/stop/<id>` stay open, because the emails link them.
 - **Nothing on the wall is deleted.** `t` on a lit item in `/wall` sends it to the trash with what hangs off it (a problem's workarounds, a job's features); `/trash` brings it back with exactly what went with it. The coach's `remove` tool does the same. The coach hears about the founder's own changes on their next turn; if one opens an earlier step again, the conversation steps back to it, and a flight plan already cut is cut again (the one before is kept beside it). Trashed conversations stay on disk and on the admin page, and can't be carried on until they are brought back.
 
+## Ground Zero, argued down (step 5)
+
+After the features, the founder decides what gets built and sold first. They pick one job (`choose_job`); the coach steers toward one drawn from a workaround the customer already pays for. Then it says, out loud, "I'm now the visiting table", and argues each feature of that job, one per turn: could they still get the job done, and still pay, without it? It pushes back once on a keep that sounds like habit; the founder has the last word, and `decide` records keep or later with their reason. Then they name the month it could be in someone's hands (`set_month`). The step is done when every feature of the job is argued, at least one is kept, and the month is set. Features of other jobs go to later releases. The status line counts kept, later and still to argue; `/wall`, the tour at the end and the roadmap website (*Argue it down*) show the decisions with the reasons, and the intake carries them as `argued` for the report run. Trashing Ground Zero's job opens the step again.
+
+Done is step 6. Conversations from before this step moved their end there when they're loaded.
+
 ## The flight plan at the end
 
-As a founder reaches step 5, the server cuts a first flight plan from their wall: one more model call (`CUT_SYSTEM` in `coach.ts`, with a JSON schema) writes the stories for each feature and cuts them into releases, and `web/report.ts`'s `check()` holds it to the release rules, with one retry if it breaks one. It is saved in `data/plans/<id>.json`, added to the founder's intake as `plan`, and shown to them on screen. If it isn't ready when they leave their email, the thinking holds for up to two minutes; past that, or if it fails, they see their roadmap without it, and the plan shows up on their next visit if it lands. The emailed report is still the facilitator's run, starting from this plan.
+As a founder reaches the end, the server cuts a first flight plan from their wall: one more model call (`CUT_SYSTEM` in `coach.ts`, with a JSON schema) writes the stories for each feature and cuts them into releases, taking Ground Zero as the founder argued it (their job, their month, exactly the features they kept), and `web/report.ts`'s `check()` and `fromCut` hold it to the release rules and to those decisions, with one retry if it breaks one. It is saved in `data/plans/<id>.json`, added to the founder's intake as `plan`, and shown to them on screen. If it isn't ready when they leave their email, the thinking holds for up to two minutes; past that, or if it fails, they see their roadmap without it, and the plan shows up on their next visit if it lands. The emailed report is still the facilitator's run, starting from this plan.
 
 ## Email
 

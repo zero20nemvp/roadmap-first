@@ -10,6 +10,8 @@ export type RoadmapExtras = {
   chat?: { role: 'coach' | 'founder'; text: string }[]
   /** When it was made, as shown in the corner. */
   generated?: string
+  /** Ground Zero argued down: each feature of its job, kept or moved later, with the founder's reason. */
+  argued?: { feature: string; name: string; keep: boolean; reason: string }[]
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -103,6 +105,7 @@ export function roadmapView(r: Report, x: RoadmapExtras = {}) {
     releases,
     stories: gzStories.map(s => ({ id: s.id, featureId: s.feature, feature: feature.get(s.feature)?.name ?? s.feature, text: s.text, done: s.done })),
     unknowns, log, checks,
+    argued: x.argued ?? [],
     complete: !rules.errors.length,
   }
 }

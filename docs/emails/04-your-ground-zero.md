@@ -1,20 +1,22 @@
 ---
 send: 4 days after email 3 (the coach sends it)
 to: founders who said yes to "May we email you your report…"
-idea: your Ground Zero, and an invite to book time
+idea: your Ground Zero, argued with a customer this time, and an invite to book time
 ---
 
-**Subject:** Your Ground Zero, in 15 minutes
+**Subject:** Your Ground Zero, argued with a customer
 
 Hi {{name}},
 
-One short exercise to finish the series. Take Ground Zero from your [flight plan]({{report_link}}) and check it against the smallest valid Ground Zero:
+You argued Ground Zero down with the coach: one job, and for every feature, whether they could still get it done, and still pay, without it. Your reasons are on your [roadmap]({{report_link}}), under *Argue it down*.
 
-1. **One job.** Does it complete exactly one job end to end? If it completes two, which can wait for R1?
-2. **The fewest features.** Strike each feature through and ask: can the customer still do the job without it? If yes, move it out.
-3. **Only the stories those features need.** Every story left should be one you'd miss on day one.
-4. **A target month.** When could this be in someone's hands? Write the month, not a date.
+The coach was only standing in for the customer. To finish the series, take it to a real one, in 15 minutes:
 
-What's left is what you build first. If you'd like a second pair of eyes on it, book 30 minutes with me: {{booking_link}}
+1. **The job.** Read them Ground Zero's job. Is it the one they'd pay to have done first? If they name another, that's your Ground Zero.
+2. **What you kept.** For each feature you kept, ask what they'd do if it weren't there. If they shrug, move it later.
+3. **What you moved later.** Ask whether they'd still pay without it. If they wouldn't, it was never "later".
+4. **The month.** Tell them the month you named. Would they pay for it then? Ask for a pre-payment, even a small one.
+
+Whatever changed, change it on your plan: the customer outranks the coach. If you'd like a second pair of eyes on it, book 30 minutes with me: {{booking_link}}
 
 {{facilitator}}

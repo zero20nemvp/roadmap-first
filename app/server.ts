@@ -12,7 +12,7 @@ import nodemailer from 'nodemailer'
 import type { Report } from '../web/report.ts'
 import { renderRoadmap } from '../web/roadmap.ts'
 import { type Account, auth, clearCookie, normalEmail, readCookie, setCookie, validEmail } from './auth.ts'
-import { apply, CUT_SCHEMA, CUT_SYSTEM, cutPrompt, emptyWall, fromCut, GREETING, live, settle, STEP_NAMES, summary, SYSTEM, toReport, TOOLS, trash, untrash, type Cut, type Wall } from './coach.ts'
+import { apply, CUT_SCHEMA, CUT_SYSTEM, cutPrompt, DONE, emptyWall, fromCut, GREETING, groundZero, live, migrate, settle, STEP_NAMES, summary, SYSTEM, toReport, TOOLS, trash, untrash, type Cut, type Wall } from './coach.ts'
 import { codeEmail, due, type Email, facilitatorEmail, type MailLog, parseTemplate, seriesEmail, SERIES, type Template } from './mail.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -75,7 +75,12 @@ type Session = {
 
 const sessionPath = (id: string) => join(DATA, 'sessions', `${id}.json`)
 const validId = (id: unknown): id is string => typeof id === 'string' && /^[A-Za-z0-9_-]{22}$/.test(id)
-const load = (id: string): Session | null => existsSync(sessionPath(id)) ? JSON.parse(readFileSync(sessionPath(id), 'utf8')) : null
+const load = (id: string): Session | null => {
+  if (!existsSync(sessionPath(id))) return null
+  const s: Session = JSON.parse(readFileSync(sessionPath(id), 'utf8'))
+  migrate(s.wall)
+  return s
+}
 const save = (s: Session, touch = true) => { if (touch) s.updated = new Date().toISOString(); writeFileSync(sessionPath(s.id), JSON.stringify(s)) }
 /** Nothing said in it yet: not worth keeping under an account. */
 const empty = (s: Session) => s.chat.length <= 1
@@ -111,7 +116,7 @@ const me = (who: Account | null) => who ? { email: who.email, name: who.name } :
 
 function view(s: Session) {
   return {
-    id: s.id, step: s.wall.step, steps: STEP_NAMES, wall: s.wall, chat: s.chat, done: s.wall.step === 5, trashed: s.trashed ?? null,
+    id: s.id, step: s.wall.step, steps: STEP_NAMES, wall: s.wall, chat: s.chat, done: s.wall.step === DONE, trashed: s.trashed ?? null,
     contacted: !!s.contact, consent: !!s.contact?.consent, plan: s.contact ? readPlan(s.id) : null,
   }
 }
@@ -127,6 +132,12 @@ function stalePlan(id: string) {
   writeFileSync(planPath(id), JSON.stringify({ ...p, stale: true }))
 }
 
+/** Ground Zero as the founder argued it down, a row per feature, for the roadmap page and the intake. */
+const arguedRows = (w: Wall) => groundZero(w).features.flatMap(f => {
+  const a = w.groundZero.argued[f.id]
+  return a ? [{ feature: f.id, name: f.name, keep: a.keep, reason: a.reason }] : []
+})
+
 /** What the facilitator's report run starts from: the wall, and the flight plan the founder saw when there is one. */
 function writeIntake(id: string) {
   const s = load(id)
@@ -134,7 +145,7 @@ function writeIntake(id: string) {
   const { name, email, consent } = s.contact
   const plan = readPlan(id)
   writeFileSync(join(DATA, 'intakes', `${id}.json`), JSON.stringify({
-    consent, report: toReport(s.wall, { name, email }), unknowns: live(s.wall).unknowns,
+    consent, report: toReport(s.wall, { name, email }), unknowns: live(s.wall).unknowns, argued: arguedRows(s.wall),
     ...(plan ? { plan: { ...plan, founder: { name, email } } } : {}),
   }, null, 2))
 }
@@ -330,7 +341,7 @@ const server = createServer(async (req, res) => {
       const generated = new Date(s.contact.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-frame-options': 'SAMEORIGIN', 'referrer-policy': 'no-referrer' })
       return res.end(renderRoadmap(roadmapTemplate, { ...plan, founder: { name: s.contact.name } },
-        { unknowns: live(s.wall).unknowns, chat: s.chat, generated }, '<script src="/roadmap-vendor.js"></script>'))
+        { unknowns: live(s.wall).unknowns, argued: arguedRows(s.wall), chat: s.chat, generated }, '<script src="/roadmap-vendor.js"></script>'))
     }
 
     if (req.method === 'POST' && url.pathname === '/api/session') {
@@ -419,7 +430,7 @@ const server = createServer(async (req, res) => {
       ;(s.notes ??= []).push(r.note.replace(/; the founder can bring (it|them) back\.$/, '.'))
       stalePlan(s.id)
       save(s)
-      if (s.contact) { writeIntake(s.id); if (s.wall.step === 5) void planFor(s) }
+      if (s.contact) { writeIntake(s.id); if (s.wall.step === DONE) void planFor(s) }
       return json(res, 200, view(s))
     }
 
@@ -430,7 +441,7 @@ const server = createServer(async (req, res) => {
       if (s.trashed) return json(res, 400, { error: 'This conversation is in your trash. Bring it back from /trash to carry on.' })
       const said = String(text ?? '').trim().slice(0, MAX_CHARS)
       if (!said) return json(res, 400, { error: 'Say something first.' })
-      if (s.wall.step === 5) return json(res, 400, s.contact ? { error: 'You’re done with this one: type /roadmap to see it, or /new to start another.' } : { error: 'You’re done: leave your name and email for your report.', code: 'contact' })
+      if (s.wall.step === DONE) return json(res, 400, s.contact ? { error: 'You’re done with this one: type /roadmap to see it, or /new to start another.' } : { error: 'You’re done: leave your name and email for your report.', code: 'contact' })
       if (s.turns >= MAX_TURNS) return json(res, 429, { error: 'That’s as long as one conversation can go. Leave your name and email and we’ll pick it up from your report.', code: 'contact' })
       if (spent() >= DAILY_USD) return json(res, 503, { error: 'The coach is resting for today: it’s free while our tokens last. Come back tomorrow; your conversation is saved.' })
       if (busy.has(s.id)) return json(res, 409, { error: 'Still thinking about your last answer.' })
@@ -443,7 +454,7 @@ const server = createServer(async (req, res) => {
         delete s.notes
         send({ type: 'end', ...view(s) })
         // the turn may have moved the wall on to the end
-        if ((s.wall.step as number) === 5) void planFor(s)
+        if ((s.wall.step as number) === DONE) void planFor(s)
       } catch (err) {
         console.error(s.id, err)
         // Drop the unanswered founder message so the conversation stays well-formed.
@@ -472,7 +483,7 @@ const server = createServer(async (req, res) => {
       save(s)
       writeIntake(s.id)
       // The thinking holds while the flight plan is cut, if it isn't ready yet; past two minutes it shows up on their next visit.
-      if (s.wall.step === 5) await Promise.race([planFor(s), new Promise(r => setTimeout(r, 120_000))])
+      if (s.wall.step === DONE) await Promise.race([planFor(s), new Promise(r => setTimeout(r, 120_000))])
       void sendMail()
       return json(res, 200, { ...view(s), me: me(accounts.byId(who.id)) })
     }

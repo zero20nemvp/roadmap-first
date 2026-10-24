@@ -47,6 +47,14 @@ async function post(path, data) {
   return v
 }
 
+/** Ground Zero as argued so far: its job, and its features kept, moved later or still open. */
+function argued() {
+  const w = liveWall(state.wall), gz = state.wall.groundZero ?? { argued: {} }
+  const job = w.jobs.find(j => j.id === gz.job), features = job ? w.features.filter(f => f.job === job.id) : []
+  const is = keep => features.filter(f => gz.argued[f.id]?.keep === keep)
+  return { job, month: gz.month, features, kept: is(true), later: is(false), open: features.filter(f => !gz.argued[f.id]), reasons: gz.argued }
+}
+
 /** The wall without what is in the trash. */
 const liveWall = w => Object.fromEntries(Object.entries(w).map(([k, v]) => [k, Array.isArray(v) ? v.filter(x => !x.trashed) : v]))
 const counts = wall => { const w = liveWall(wall); return [[w.problems, 'problem'], [w.workarounds, 'workaround'], [w.jobs, 'job'], [w.features, 'feature'], [w.unknowns, 'parked']]
@@ -58,7 +66,9 @@ function status() {
   if (state.contacted && state.done) return state.plan ? 'enter to walk your roadmap · /roadmap for the report · /new to start again' : 'enter to see your roadmap · /new to start again'
   if (state.done) return 'the four steps are done · your report is next'
   const c = counts(state.wall)
-  const where = state.step === 0 ? 'getting started' : `step ${state.step} of 4 · ${state.steps[state.step].toLowerCase()}`
+  const gz = argued()
+  const where = state.step === 0 ? 'getting started' : `step ${state.step} of 5 · ${state.steps[state.step].toLowerCase()}`
+  if (state.step === 5) return [where, gz.job ? `${gz.job.id} · ${gz.kept.length} kept · ${gz.later.length} later${gz.open.length ? ` · ${gz.open.length} to argue` : ''}` : 'which job first?', '/wall'].join(' · ')
   return [where, c, hasWall() ? '/wall' : ''].filter(Boolean).join(' · ')
 }
 
@@ -99,6 +109,12 @@ function openWall(k, at = 0) {
   for (const x of w.jobs) items.push({ id: x.id, title: `${x.id} · job${x.from ? ' from ' + x.from : ''}`, stamp: 'step 3', text: `When ${x.when}, I want ${x.want}, so ${x.so}.`, dot: 'var(--mine)' })
   for (const x of w.features) items.push({ id: x.id, title: `${x.id} · feature for ${x.job}`, stamp: 'step 4', text: x.name, dot: 'var(--live)' })
   for (const x of w.unknowns) items.push({ id: x.id, title: `${x.id} · parked to test`, text: x.text, dot: 'var(--faint)' })
+  const gz = argued()
+  if (gz.job) items.push({ title: `Ground Zero · ${gz.job.id}`, stamp: gz.month ? `step 5 · ${monthName(gz.month)}` : 'step 5', dot: 'var(--mine)', text: [
+    gz.kept.length ? `Keeps ${gz.kept.map(f => f.name).join(', ')}.` : '',
+    gz.later.length ? `Later: ${gz.later.map(f => f.name).join(', ')}.` : '',
+    gz.open.length ? `Still to argue: ${gz.open.map(f => f.name).join(', ')}.` : '',
+  ].filter(Boolean).join(' ') })
   const toTrash = (x, k, i) => x.id ? trashItem(k, x.id, i) : k.note('err', 'Your product stays: it’s what the wall is about.')
   k.list(items, { title: 'your wall', at, actions: { t: toTrash, Backspace: toTrash, Delete: toTrash }, keys: 't to trash' })
 }
@@ -144,7 +160,7 @@ async function openConversations(k, at = 0) {
   try { const r = await fetch('/api/conversations'); list = await r.json(); if (!r.ok) throw new Error(list.error) } catch (e) { return k.note('err', e.message) }
   const items = list.conversations.filter(c => !c.trashed).map(c => ({
     id: c.id, title: (c.product || 'not named yet') + (c.id === state?.id ? ' · open now' : ''), stamp: when(c.updated),
-    text: c.done ? 'finished · your roadmap is ready' : c.step === 0 ? 'just started' : `step ${c.step} of 4 · ${c.stepName.toLowerCase()}`,
+    text: c.done ? 'finished · your roadmap is ready' : c.step === 0 ? 'just started' : `step ${c.step} of 5 · ${c.stepName.toLowerCase()}`,
     dot: c.id === state?.id ? 'var(--mine)' : c.done ? 'var(--live)' : 'var(--dim)',
   }))
   if (!items.length) return k.note('said', 'No conversations yet: say what you’re building.')
@@ -219,6 +235,10 @@ function showRoadmap(k, { at = 0 } = {}) {
   if (w.workarounds.length) steps.push({ title: 'what they do about them today', items: w.workarounds.map(x => ({ title: `${x.id} · for ${x.problem}`, stamp: x.pays ? `pays ${x.pays}` : '', text: x.text, dot: 'var(--warn)' })) })
   if (w.jobs.length) steps.push({ title: 'the jobs they’re really trying to get done', items: w.jobs.map(x => ({ title: `When ${x.when}`, text: `I want ${x.want}, so ${x.so}.`, dot: 'var(--mine)' })) })
   if (w.features.length) steps.push({ title: 'what your product needs to do them', items: w.features.map(x => ({ title: `${x.id} · for ${x.job}`, text: x.name, dot: 'var(--live)' })) })
+  const gz = argued()
+  if (gz.job && (gz.kept.length || gz.later.length)) steps.push({ title: `argued down · what ground zero keeps for ${gz.job.id}`, items: [...gz.kept, ...gz.later].map(f => ({
+    title: f.name, stamp: gz.reasons[f.id].keep ? 'stays in ground zero' : 'moves later', text: cap(gz.reasons[f.id].reason), dot: gz.reasons[f.id].keep ? 'var(--mine)' : 'var(--dim)',
+  })) })
   if (p) {
     const stories = byId(p.stories)
     const shipped = r => [...new Set(r.stories.map(s => features[stories[s]?.feature]?.name).filter(Boolean))]

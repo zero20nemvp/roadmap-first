@@ -220,6 +220,14 @@ test('ground zero as argued holds the cut', () => {
   assert.ok(bad.errors.some(e => /2099-03, the month/.test(e)))
 })
 
+test('ground zero argued down shows on the roadmap website, in the founder’s words', () => {
+  const template = readFileSync(new URL('../web/roadmap.template.html', import.meta.url), 'utf8')
+  const { report } = fromCut(walked(), { pitch: 'p', stories: [{ id: 'S1', feature: 'F1', text: 'A buyer can pay', done: 'a payment lands' }], releases: [{ id: 'GZ', month: '2099-03', completes: ['J1'], stories: ['S1'], price: null }] }, { name: 'A', email: 'a@x.io' })
+  const html = renderRoadmap(template, report, { argued: [{ feature: 'F1', name: 'Ticket checkout', keep: true, reason: 'no checkout, no sale' }] }, '')
+  assert.match(html, /"argued":\[\{"feature":"F1","name":"Ticket checkout","keep":true,"reason":"no checkout, no sale"\}\]/)
+  assert.match(html, /id="argued-rows"/)
+})
+
 test('a wall from before ground zero was argued keeps its end', () => {
   const old = walked() as Partial<ReturnType<typeof walked>>
   delete old.groundZero
