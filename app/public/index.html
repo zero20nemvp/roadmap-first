@@ -135,12 +135,12 @@ function showRoadmap(k, { at = 0 } = {}) {
   steps.push({ title: 'from here', text: [
     p ? `Ground Zero is the first thing to build: the smallest release that gets one job done for your customer, end to end.${p.releases[0]?.price ? ' And they already pay for a way round it.' : ''}` : 'Your flight plan, from Ground Zero, is being cut by your facilitator.',
     state.consent ? 'Your full report is coming by email: every story, and the flight plan, tidied by your facilitator.' : 'Your facilitator has all of this, and turns it into your full report.',
-    p ? 'Press enter to see it all on one page.' : '',
+    p ? 'Press enter to open your roadmap as a website: all of it, on one page you can keep.' : '',
     'Another product, or another customer? Type /new to start a new conversation.',
   ].filter(Boolean).join('\n\n') })
   k.tour(steps, {
     title: 'your roadmap', at,
-    end: p ? 'enter for the whole page' : 'enter to finish',
+    end: p ? 'enter for your roadmap website' : 'enter to finish',
     // the last screen is the whole roadmap as one long page; leaving it comes back into the flow
     done: k => p ? openPage(() => showRoadmap(k, { at: -1 })) : k.note('said', 'enter to see it again · /new to start a new conversation'),
   })
@@ -178,9 +178,9 @@ addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden) { e.
 frame.addEventListener('load', () => {
   try {
     frame.contentWindow.addEventListener('keydown', e => { if (e.key === 'Escape') closePage() })
-    // on a phone, room above the report for the back button
+    // room above the roadmap's first line for the back button
     const room = frame.contentDocument.createElement('style')
-    room.textContent = '@media (max-width:520px){body{padding-top:44px}}'
+    room.textContent = '.hero{padding-top:72px}'
     frame.contentDocument.head.append(room)
     frame.contentWindow.focus()
   } catch {}

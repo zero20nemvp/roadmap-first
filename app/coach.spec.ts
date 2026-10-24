@@ -1,7 +1,25 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { readFileSync } from 'node:fs'
 import { check } from '../web/report.ts'
+import { renderRoadmap } from '../web/roadmap.ts'
 import { apply, CUT_SCHEMA, cutPrompt, emptyWall, fromCut, gaps, summary, toReport, TOOLS } from './coach.ts'
+
+test('the end of a conversation renders as the roadmap website, in v2 words only', () => {
+  const template = readFileSync(new URL('../web/roadmap.template.html', import.meta.url), 'utf8')
+  assert.doesNotMatch(template, /stage 1|pieces/i)
+  const w = walked()
+  const { report } = fromCut(w, {
+    pitch: 'Ticketing where the promoter keeps the data',
+    stories: [{ id: 'S1', feature: 'F1', text: 'A buyer can pay for a ticket', done: 'a test payment lands' }],
+    releases: [{ id: 'GZ', month: '2026-11', completes: ['J1'], stories: ['S1'], price: null }],
+  }, { name: 'Ada', email: 'ada@example.com' })
+  const html = renderRoadmap(template, report, { unknowns: w.unknowns, chat: [] }, '<script src="/roadmap-vendor.js"></script>')
+  assert.match(html, /<title>Doorlist Roadmap<\/title>/)
+  assert.match(html, /<script src="\/roadmap-vendor.js"><\/script>/)
+  assert.doesNotMatch(html, /__021_/)
+  assert.doesNotMatch(html, /ada@example\.com/, 'the email stays off the page')
+})
 
 test('a cut flight plan becomes a checked report: Ground Zero next, the rest planned', () => {
   const w = walked()

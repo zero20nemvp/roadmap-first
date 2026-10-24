@@ -6,8 +6,10 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { gzipSync } from 'node:zlib'
 import Anthropic from '@anthropic-ai/sdk'
-import { renderReport, type Report } from '../web/report.ts'
+import type { Report } from '../web/report.ts'
+import { renderRoadmap } from '../web/roadmap.ts'
 import { apply, CUT_SCHEMA, CUT_SYSTEM, cutPrompt, emptyWall, fromCut, GREETING, STEP_NAMES, summary, SYSTEM, toReport, TOOLS, type Cut, type Wall } from './coach.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -30,7 +32,12 @@ const page = readFileSync(join(here, 'public', 'index.html'), 'utf8')
 const assets: Record<string, [string, Buffer]> = {
   '/kiosk.js': ['text/javascript; charset=utf-8', readFileSync(join(here, 'public', 'kiosk.js'))],
   '/kiosk.css': ['text/css; charset=utf-8', readFileSync(join(here, 'public', 'kiosk.css'))],
+  // the roadmap website's libraries (three.js, GSAP, ScrollTrigger, d3), as one cached script
+  '/roadmap-vendor.js': ['text/javascript; charset=utf-8', Buffer.from(['three.min.js', 'gsap.min.js', 'ScrollTrigger.min.js', 'd3.min.js']
+    .map(f => readFileSync(join(here, '..', 'assets', 'vendor', f), 'utf8')).join('\n;\n'))],
 }
+const vendorGz = gzipSync(assets['/roadmap-vendor.js'][1])
+const roadmapTemplate = readFileSync(join(here, '..', 'web', 'roadmap.template.html'), 'utf8')
 
 type Session = {
   id: string
@@ -212,17 +219,25 @@ const server = createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true })
     if (req.method === 'GET' && assets[url.pathname]) {
       const [type, data] = assets[url.pathname]
+      // the roadmap's libraries are a megabyte: gzipped, and cached for a day
+      if (url.pathname === '/roadmap-vendor.js') {
+        const gz = /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''))
+        res.writeHead(200, { 'content-type': type, 'cache-control': 'public, max-age=86400', vary: 'accept-encoding', ...(gz ? { 'content-encoding': 'gzip' } : {}) })
+        return res.end(gz ? vendorGz : data)
+      }
       res.writeHead(200, { 'content-type': type, 'cache-control': 'no-cache' })
       return res.end(data)
     }
 
-    // The founder's roadmap as one long page, the report's own HTML; the conversation's id is the key to it.
+    // The founder's roadmap as a website (web/roadmap.ts, the plugin's whiteboard page in v2 words); the conversation's id is the key to it.
     const roadmap = req.method === 'GET' && url.pathname.match(/^\/roadmap\/([A-Za-z0-9_-]{22})$/)
     if (roadmap) {
       const s = load(roadmap[1]), plan = s?.contact ? readPlan(s.id) : null
       if (!s?.contact || !plan) return json(res, 404, { error: 'No roadmap here yet.' })
+      const generated = new Date(s.contact.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-frame-options': 'SAMEORIGIN', 'referrer-policy': 'no-referrer' })
-      return res.end(renderReport({ ...plan, founder: { name: s.contact.name } }))
+      return res.end(renderRoadmap(roadmapTemplate, { ...plan, founder: { name: s.contact.name } },
+        { unknowns: s.wall.unknowns, chat: s.chat, generated }, '<script src="/roadmap-vendor.js"></script>'))
     }
 
     if (req.method === 'POST' && url.pathname === '/api/session') {
