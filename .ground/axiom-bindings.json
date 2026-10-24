@@ -1,0 +1,26 @@
+{
+  "$comment": "Grounding layer: binds declared axioms (ground truth chain) to the code that must satisfy them and a command that mechanically verifies it. 'hard' = mechanically decidable (the command's exit code is the verdict); 'soft' = needs a judge. Run `ground axiom verify` or `ground doctor`. Managed by `ground axiom bind`.",
+  "bindings": [
+    {
+      "axiom": "AX-ROADMAP-FIRST-00048",
+      "kind": "hard",
+      "statement": "COACH ACCOUNTS ARE BY EMAILED CODE AND NOTHING A FOUNDER MADE IS DELETED (2026-10-24, db). A founder proves their email with a six-digit code sent from noreply@zero2one.ee (15 minutes, 5 tries, rate-limited, stored only as a hash) and stays logged in for a year by an httpOnly cookie whose token the server keeps only as a hash; there are no passwords. Nobody has to log in to start: the code is asked at the end, and verifying it makes the account. A conversation with an account answers only to its login, except the emailed links /roadmap/<id> and /stop/<id>. Wall items and whole conversations are trashed and brought back, never deleted: the coach's remove tool trashes too, with what hangs off the item.",
+      "code": [
+        "app/auth.ts",
+        "app/coach.ts",
+        "app/server.ts"
+      ],
+      "witness": "app/auth.spec.ts",
+      "verify": "cd app && node --test --test-name-pattern='nothing on the wall is deleted|untrash brings back|a code proves an email once|a code runs out' coach.spec.ts auth.spec.ts"
+    },
+    {
+      "axiom": "AX-ROADMAP-FIRST-00049",
+      "kind": "hard",
+      "statement": "GROUND ZERO IS ARGUED DOWN BY THE FOUNDER IN THE CONVERSATION, NOT HANDED TO THEM (2026-10-24, db). Step 5 of the coach: the founder picks one job; the coach, as the visiting table, asks of each of its features whether they could still get the job done and still pay without it, pushes back once on a habit keep, and records the founder's keep-or-later with their reason; the founder names the month. The flight-plan cut takes that Ground Zero as given: exactly that job, that month, and exactly the features kept.",
+      "code": [
+        "app/coach.ts"
+      ],
+      "verify": "cd app && node --test --test-name-pattern='ground zero' coach.spec.ts"
+    }
+  ]
+}

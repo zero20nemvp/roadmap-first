@@ -1,0 +1,69 @@
+# What to commit from .ground/ — convention shared with other ground projects.
+#
+# TRACK (source of truth, by omission below):
+#   truth/chain.jsonl        the axiom chain
+#   mem/chain.jsonl          the belief chain
+#   axiom-bindings.json      declared intent ↔ code bindings (agentics-specific)
+#   meta.json                world name
+#   ilx/model.ilx            the semantic graph — source, like the chains
+#   ilx/metrics.jsonl        the measured time series; declared figures cite it
+#   .gitignore               this file
+#
+# IGNORE (derived, transient, or local working state):
+truth/world.json
+truth/chain.wal
+truth/cursors.json
+truth/rejections.jsonl
+mem/chain.wal
+mem/cursors.json
+mem/graph.json
+# Rebuildable from the tracked chains — including promotion links, which are
+# re-derived from the axioms' `[promoted from MEM-x]` markers on the truth
+# chain (`ground mem graph rebuild`, or `ground doctor --fix`). Before that
+# derivation existed, a promotion lived ONLY here and a fresh clone lost it.
+mem/graph.db
+mem/graph.db-shm
+mem/graph.db-wal
+# Derived: always rebuildable from model.ilx + the chain, never authoritative.
+ilx/index.json
+# Pending proposals (`ground ilx propose`). model.ilx is the source of truth; a
+# delta is a document ABOUT a change that has not happened, and the record of one
+# that did is the approval on the flow queue plus the model file itself.
+ilx/deltas/
+# Derived: which nodes a delta has moved under since their check last passed.
+# `node-bindings.json` beside it IS tracked — a node's check is authored intent
+# about the projection, like a recipe's Status line.
+ilx/built.json
+flow/
+plan/
+journal/
+harness/
+# The agent's runtime state: pi's session transcripts, its model store, the
+# models.json ground writes for it — and `auth.json`, which is a CREDENTIAL and
+# must never be committed (AX-AGENTICS-00101 puts it in the world precisely so
+# it is not machine-global; that is not an argument for it being in git).
+agent/
+
+# The factory's working state (AX-AGENTICS-00078): run checkpoints, level logs
+# and generated directives. Derived from a plan and reproducible by re-running
+# it — and previously written into the harness crate's SOURCE directory, which
+# is how a build came to dirty tracked code.
+work/runs
+work/directives
+
+# work/recipes is NOT ignored: a recipe library is authored intent, like the
+# chains, and a `bless` that changes its Status line is a decision worth
+# reviewing.
+
+# Derived: verdicts recorded against the fingerprint that produced them.
+verify-cache.json
+verify-cache.json.tmp
+
+# Derived: what `ground next` last said, for the status line, and what the
+# Handoff mod last saw. Both are worked out again from the world on the next read.
+next.json
+next.json.tmp
+mods/
+# What turns left for db, waiting to be accepted or rejected (`ground propose`):
+# this machine's working state, like the plan.
+harvest/
