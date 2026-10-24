@@ -4,6 +4,16 @@ A Claude Code plugin that coaches you, one question at a time, to **stage 1**: t
 
 Everything it needs ships inside the plugin. It has no other dependencies and works offline.
 
+## v2: the workshop in a browser
+
+The v2 workshop needs nothing installed on a founder's laptop. Founders start from the problem and end with a **flight plan** of releases, starting at **Ground Zero**: problems → workarounds → jobs → features → stories → releases.
+
+- **Intake:** [`web/intake.html`](web/intake.html), one page with name, email, product, problems, workarounds, jobs, features and a consent box. On claude.ai it saves to the page's `intakes` database; on any other host, add `?to=<your email>` to send answers by email, or founders copy or download them.
+- **Report run:** by hand for now, on the facilitator's side. The `report` skill ([`skills/report/SKILL.md`](skills/report/SKILL.md)) walks it: `node scripts/report.ts --seed <name>.intake.json`, add stories and releases, then `node scripts/report.ts <name>.report.json` checks the release rules and writes one self-contained HTML report.
+- **Report link:** publish each report as its own artifact, and turn on link sharing before you send it.
+- **Emails:** [`docs/emails/`](docs/emails/), four of them, one idea each, for founders who ticked consent.
+- **Worked example:** [`examples/ticketing/report.ts`](examples/ticketing/report.ts), rendered to `examples/ticketing/report.html`.
+
 ## Guide
 
 The full guide is in [`docs/`](docs/README.md), and you can read every page inside Claude Code with `/021 guide`:

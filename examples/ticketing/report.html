@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Doorlist Flight Plan</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Kalam:wght@400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#EDF0F3; --surface:#FFFFFF; --ink:#141C26; --muted:#56636F; --line:#D2D9E0;
+  --accent:#1F4FE0; --flag:#D93A3F; --ok:#1E8A4C; --warn:#B26A00;
+  --yellow:#FFE45C; --blue:#9AD6FF; --pink:#FF9DBB; --green:#A6E8A8; --note-ink:#1D1B16;
+  --f-display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body:"Instrument Sans", "Helvetica Neue", system-ui, sans-serif;
+  --f-hand:"Kalam", "Comic Sans MS", "Marker Felt", cursive;
+  --f-mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+  --shadow:0 1px 1px rgba(20,28,38,.08), 0 6px 14px -6px rgba(20,28,38,.28);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1319; --surface:#161D26; --ink:#E7ECF1; --muted:#97A4B1; --line:#2A3542;
+  --accent:#7D9CFF; --flag:#FF6E72; --ok:#5BD08B; --warn:#F2B25C;
+  --shadow:0 1px 1px rgba(0,0,0,.4), 0 8px 18px -6px rgba(0,0,0,.7); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1319; --surface:#161D26; --ink:#E7ECF1; --muted:#97A4B1; --line:#2A3542;
+  --accent:#7D9CFF; --flag:#FF6E72; --ok:#5BD08B; --warn:#F2B25C;
+  --shadow:0 1px 1px rgba(0,0,0,.4), 0 8px 18px -6px rgba(0,0,0,.7); color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--f-body);
+  background-image:radial-gradient(color-mix(in srgb,var(--ink) 9%,transparent) 1px,transparent 1px);background-size:22px 22px;overflow-x:hidden}
+.wrap{max-width:1040px;margin:0 auto;padding:0 max(16px,env(safe-area-inset-left,0px))}
+section{padding-block:56px 8px}
+h1,h2,h4{font-family:var(--f-display);letter-spacing:-.02em;margin:0;text-wrap:balance}
+h1{font-size:clamp(44px,9vw,104px);line-height:.92;font-weight:800}
+h2{font-size:clamp(26px,4vw,40px);line-height:1.05;font-weight:800;margin-bottom:6px}
+h4{font-size:17px}
+p{margin:0}
+ul{list-style:none;margin:0;padding:0}
+.eyebrow{font:600 12px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+.eyebrow b{color:var(--accent)}
+.lede{color:var(--muted);max-width:62ch;margin-bottom:24px}
+.muted{color:var(--muted);font-weight:400}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.note{background:var(--c,var(--yellow));color:var(--note-ink);font:400 17px/1.3 var(--f-hand);padding:12px 14px 16px;box-shadow:var(--shadow);border-radius:2px 2px 6px 2px;min-width:0;overflow-wrap:anywhere}
+.note .tag{font:600 11px/1 var(--f-mono);letter-spacing:.06em;opacity:.7;display:block;margin-bottom:6px}
+.note.y{--c:var(--yellow)} .note.b{--c:var(--blue)} .note.p{--c:var(--pink)} .note.g{--c:var(--green)}
+.pays{display:inline-block;margin-top:8px;font:600 12px/1 var(--f-mono);background:var(--note-ink);color:var(--yellow);padding:5px 7px;border-radius:4px}
+header{padding-block:48px 8px}
+.sub{font-size:clamp(18px,2.2vw,22px);margin-top:14px;max-width:40ch}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.chip{font:600 13px/1 var(--f-mono);padding:8px 10px;border:1px solid var(--line);background:var(--surface);border-radius:999px}
+.chip b{color:var(--accent)}
+.pw{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:16px;margin-bottom:18px}
+.ws{display:grid;gap:12px}
+.job{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:16px;margin-bottom:18px}
+.fs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;align-content:start}
+.board{background:#0B1118;color:#E7ECF1;border-radius:12px;padding:8px;box-shadow:var(--shadow);overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:560px}
+th{font:600 11px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:#97A4B1;text-align:left;padding:14px 12px}
+td{padding:14px 12px;border-top:1px solid #222D39;vertical-align:top}
+td.wp{font-weight:600;color:#FFE45C;width:64px}
+summary{cursor:pointer;font-weight:600}
+summary:focus-visible{outline:2px solid #7D9CFF;outline-offset:3px}
+.open{margin-top:12px;display:grid;gap:14px}
+.wf h4{font-size:15px;color:#E7ECF1}
+.wf .muted{color:#97A4B1;font:400 12px/1 var(--f-mono)}
+.wf li{margin-top:8px;padding-left:12px;border-left:2px solid #2A3542;display:grid}
+.wf li span{color:#97A4B1;font-size:14px}
+.status{font:600 12px/1 var(--f-mono);padding:6px 8px;border-radius:4px;background:#222D39;white-space:nowrap}
+.st-reached .status{background:#1E8A4C;color:#fff}
+.st-next .status{background:#FFE45C;color:#1D1B16}
+.st-delayed .status{background:#B26A00;color:#fff}
+.rules{margin-top:20px;display:grid;gap:8px;color:var(--muted);max-width:70ch}
+.rules b{color:var(--ink)}
+footer{padding-block:56px 40px;color:var(--muted);font-size:14px}
+@media (max-width:720px){.pw,.job{grid-template-columns:minmax(0,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <p class="eyebrow"><b>021</b> · roadmap-first report for Example founder</p>
+  <h1>Doorlist</h1>
+  <p class="sub">Ticketing where the promoter keeps the data, for independent event promoters</p>
+  <div class="chips">
+    <span class="chip"><b>3</b> problems</span>
+    <span class="chip"><b>4</b> jobs</span>
+    <span class="chip"><b>5</b> features</span>
+    <span class="chip"><b>4</b> releases</span>
+    <span class="chip"><b>Ground Zero</b> is billable</span>
+  </div>
+</header>
+
+<section>
+  <p class="eyebrow"><b>1–2</b> · problems and workarounds</p>
+  <h2>What hurts, and what they do about it today</h2>
+  <p class="lede">A workaround is the job in disguise. Your customer already pays for one, so Ground Zero is billable.</p>
+  <ul><li class="pw"><div class="note p"><span class="tag">P1 · problem</span>The ticket platform keeps the guest list, so promoters can&#39;t reach their own crowd</div>
+      <div class="ws"><div class="note y"><span class="tag">W1 · today they</span>Pay a big platform&#39;s fees and export what little data it allows<span class="pays">pays 10% per ticket</span></div></div></li><li class="pw"><div class="note p"><span class="tag">P2 · problem</span>Door check-in is a printed list and a pen; the queue backs up</div>
+      <div class="ws"><div class="note y"><span class="tag">W2 · today they</span>Print the list and tick names by hand</div></div></li><li class="pw"><div class="note p"><span class="tag">P3 · problem</span>Running two events in a month means two separate setups</div>
+      <div class="ws"><div class="note y"><span class="tag">W3 · today they</span>Copy last event&#39;s spreadsheet and start again</div></div></li></ul>
+</section>
+
+<section>
+  <p class="eyebrow"><b>3–4</b> · jobs and features</p>
+  <h2>The jobs, and what your product needs to do them</h2>
+  <p class="lede">Jobs are the linchpin: jobs give features, features give stories.</p>
+  <ul><li class="job"><div class="note y"><span class="tag">J1 · job</span>When I announce an event, I want to sell tickets, so I keep the buyers&#39; data for next time</div>
+      <ul class="fs"><li class="note b"><span class="tag">F1</span>Event page with ticket checkout</li><li class="note b"><span class="tag">F2</span>Buyer list the promoter owns and exports</li></ul></li><li class="job"><div class="note y"><span class="tag">J2 · job</span>When guests arrive, I want to check them in at the door, so the queue moves</div>
+      <ul class="fs"><li class="note b"><span class="tag">F3</span>QR ticket scan at the door</li></ul></li><li class="job"><div class="note y"><span class="tag">J3 · job</span>When I run more than one event, I want to run several events at once, so I don&#39;t rebuild each one</div>
+      <ul class="fs"><li class="note b"><span class="tag">F4</span>Several events under one account</li></ul></li><li class="job"><div class="note y"><span class="tag">J4 · job</span>When a new event is on, I want to re-market to past guests, so my best crowd comes back</div>
+      <ul class="fs"><li class="note b"><span class="tag">F5</span>Email past guests about a new event</li></ul></li></ul>
+</section>
+
+<section id="flight-plan">
+  <p class="eyebrow"><b>5–6</b> · stories and releases</p>
+  <h2>Flight plan</h2>
+  <p class="lede">Your product's route, one waypoint per release, starting at Ground Zero. 0 of 4 reached. Open a waypoint to see its features and stories.</p>
+  <div class="board"><table>
+    <thead><tr><th>Waypoint</th><th>Release (job completed)</th><th>ETA</th><th>Status</th></tr></thead>
+    <tbody><tr class="st-next"><td class="mono wp">GZ</td>
+      <td><details><summary>to sell tickets <span class="muted">· €29/month</span></summary>
+        <div class="open"><div class="wf"><h4>Event page with ticket checkout <span class="muted">F1 · J1</span></h4>
+        <ul><li><b>Promoter creates an event with a price and capacity</b><span>Done when the event page shows price and seats left</span></li><li><b>Guest buys a ticket by card</b><span>Done when payment succeeds and a ticket email arrives</span></li></ul></div><div class="wf"><h4>Buyer list the promoter owns and exports <span class="muted">F2 · J1</span></h4>
+        <ul><li><b>Promoter downloads every buyer as CSV</b><span>Done when the CSV has name and email for each sale</span></li></ul></div></div></details></td>
+      <td class="mono">Nov 2026</td><td><span class="status">Next</span></td></tr><tr class="st-planned"><td class="mono wp">R1</td>
+      <td><details><summary>to check them in at the door</summary>
+        <div class="open"><div class="wf"><h4>QR ticket scan at the door <span class="muted">F3 · J2</span></h4>
+        <ul><li><b>Door staff scan a ticket QR on a phone</b><span>Done when a valid ticket turns green, a used one red</span></li></ul></div></div></details></td>
+      <td class="mono">Jan 2027</td><td><span class="status">Planned</span></td></tr><tr class="st-planned"><td class="mono wp">R2</td>
+      <td><details><summary>to run several events at once</summary>
+        <div class="open"><div class="wf"><h4>Several events under one account <span class="muted">F4 · J3</span></h4>
+        <ul><li><b>Promoter switches between events on one dashboard</b><span>Done when two live events show separate sales</span></li></ul></div></div></details></td>
+      <td class="mono">Mar 2027</td><td><span class="status">Planned</span></td></tr><tr class="st-planned"><td class="mono wp">R3</td>
+      <td><details><summary>to re-market to past guests</summary>
+        <div class="open"><div class="wf"><h4>Email past guests about a new event <span class="muted">F5 · J4</span></h4>
+        <ul><li><b>Promoter emails past buyers about a new event</b><span>Done when only opted-in past buyers receive it</span></li></ul></div></div></details></td>
+      <td class="mono">May 2027</td><td><span class="status">Planned</span></td></tr></tbody>
+  </table></div>
+  <div class="rules">
+    <p><b>Every release completes at least one job end to end.</b> It need not ship every feature for that job, but the job must be doable.</p>
+    <p><b>Releases stack.</b> Each builds on the one before and needs it to exist.</p>
+    <p><b>Target months, not dates.</b> Delayed means moved: honest, not failure.</p>
+    <p><b>Grandfather pricing.</b> Join at a release and keep that price forever; cancel and you lose it.</p>
+  </div>
+</section>
+
+<footer>Made with the roadmap-first method: problems → workarounds → jobs → features → stories → releases.</footer>
+</div>
+</body>
+</html>
