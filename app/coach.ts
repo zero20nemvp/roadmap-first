@@ -178,7 +178,7 @@ export const CUT_SYSTEM = `You cut a founder's first flight plan for the roadmap
 
 Use only what the founder said. Never add a feature, job or problem of your own. Write in plain words, in the founder's language.
 
-- pitch: one sentence: the product, who it is for, and the job it does first.
+- pitch: a few words saying what the product is, without its name and without who it is for (the report adds ", for <who>"), e.g. "Ticketing where the promoter keeps the data".
 - stories: for each feature, two to four small stories, ids S1, S2…, each with "feature" (its F id), "text" (what someone can do, as "<who> can <do what>") and "done" (one check you could run to see it works).
 - releases: ids GZ (Ground Zero) then R1, R2… Every story ships in exactly one release.
   - Every release completes at least one job end to end ("completes": J ids): by then, at least one feature for that job has shipped.

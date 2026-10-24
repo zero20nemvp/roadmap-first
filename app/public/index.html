@@ -9,7 +9,17 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/kiosk.css">
-<style>html,body{height:100%;margin:0;overflow:hidden;background:#0A151E}</style>
+<style>
+html,body{height:100%;margin:0;overflow:hidden;background:#0A151E}
+/* The roadmap as one long page, rising over the kiosk; back and Escape return to the flow */
+.roadmap{position:fixed;inset:0;z-index:50;background:#0E1116;opacity:0;transform:translateY(28px) scale(.985);transition:opacity .45s cubic-bezier(.25,1,.35,1),transform .55s cubic-bezier(.25,1,.35,1)}
+.roadmap.open{opacity:1;transform:none}
+.roadmap iframe{border:0;width:100%;height:100%;display:block}
+.roadmap nav{position:fixed;top:16px;left:16px;right:16px;display:flex;justify-content:space-between;gap:12px;pointer-events:none}
+.roadmap nav>*{pointer-events:auto;font:400 12px/1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.04em;color:#CFE3EE;background:rgba(10,21,30,.82);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:10px 14px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);cursor:pointer;text-decoration:none}
+.roadmap nav>*:hover{border-color:rgba(120,210,255,.5)}
+@media (max-width:520px){.roadmap nav a{display:none}}
+</style>
 </head>
 <body>
 <script type="module">
@@ -93,12 +103,12 @@ const monthName = m => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-GB',
 const releaseName = r => r.id === 'GZ' ? 'Ground Zero' : `Release ${r.id.slice(1)}`
 const cap = s => s ? s[0].toUpperCase() + s.slice(1) : ''
 
-function showRoadmap(k) {
+function showRoadmap(k, { at = 0 } = {}) {
   const w = state.wall, p = state.plan, steps = []
   const byId = xs => Object.fromEntries(xs.map(x => [x.id, x]))
   const jobs = byId(w.jobs), features = byId(w.features)
   steps.push({ title: 'your roadmap', text: [
-    p?.product.pitch || (w.product?.name ? `${w.product.name}, for ${w.product.who}.` : ''),
+    w.product?.name ? `${w.product.name}${p?.product.pitch ? `: ${p.product.pitch.replace(/\.$/, '')}` : ''}, for ${w.product.who}.` : '',
     'This is what you worked out today, one screen at a time.',
   ].filter(Boolean).join('\n\n') })
   if (w.problems.length) steps.push({ title: 'the problems your customer has', items: w.problems.map(x => ({ title: x.id, text: x.text, dot: 'var(--bad)' })) })
@@ -125,10 +135,56 @@ function showRoadmap(k) {
   steps.push({ title: 'from here', text: [
     p ? `Ground Zero is the first thing to build: the smallest release that gets one job done for your customer, end to end.${p.releases[0]?.price ? ' And they already pay for a way round it.' : ''}` : 'Your flight plan, from Ground Zero, is being cut by your facilitator.',
     state.consent ? 'Your full report is coming by email: every story, and the flight plan, tidied by your facilitator.' : 'Your facilitator has all of this, and turns it into your full report.',
+    p ? 'Press enter to see it all on one page.' : '',
     'Another product, or another customer? Type /new to start a new conversation.',
-  ].join('\n\n') })
-  k.tour(steps, { title: 'your roadmap', done: k => k.note('said', 'enter to see it again · /new to start a new conversation') })
+  ].filter(Boolean).join('\n\n') })
+  k.tour(steps, {
+    title: 'your roadmap', at,
+    end: p ? 'enter for the whole page' : 'enter to finish',
+    // the last screen is the whole roadmap as one long page; leaving it comes back into the flow
+    done: k => p ? openPage(() => showRoadmap(k, { at: -1 })) : k.note('said', 'enter to see it again · /new to start a new conversation'),
+  })
 }
+
+/* ---------- the roadmap as one long page, over the kiosk ---------- */
+const sheet = document.createElement('div')
+sheet.className = 'roadmap'; sheet.hidden = true
+sheet.innerHTML = '<iframe title="Your roadmap"></iframe><nav><button type="button">← back to the flow · esc</button><a target="_blank" rel="noopener">open as its own page ↗</a></nav>'
+document.body.append(sheet)
+const frame = sheet.querySelector('iframe')
+let afterPage = null
+
+function openPage(then) {
+  const url = `/roadmap/${state.id}`
+  if (frame.getAttribute('src') !== url) frame.src = url
+  sheet.querySelector('a').href = url
+  afterPage = then
+  sheet.hidden = false
+  requestAnimationFrame(() => requestAnimationFrame(() => { sheet.classList.add('open'); frame.contentWindow?.focus() }))
+}
+
+function closePage() {
+  if (sheet.hidden || !sheet.classList.contains('open')) return
+  sheet.classList.remove('open')
+  setTimeout(() => { sheet.hidden = true }, 450)
+  const then = afterPage; afterPage = null
+  k.root.querySelector('textarea').focus({ preventScroll: true }) // keys belong to the kiosk again
+  then?.()
+}
+
+sheet.querySelector('button').onclick = closePage
+addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden) { e.preventDefault(); e.stopImmediatePropagation(); closePage() } }, true)
+// Escape inside the page (it's ours, same origin) comes back too
+frame.addEventListener('load', () => {
+  try {
+    frame.contentWindow.addEventListener('keydown', e => { if (e.key === 'Escape') closePage() })
+    // on a phone, room above the report for the back button
+    const room = frame.contentDocument.createElement('style')
+    room.textContent = '@media (max-width:520px){body{padding-top:44px}}'
+    frame.contentDocument.head.append(room)
+    frame.contentWindow.focus()
+  } catch {}
+})
 
 /* ---------- starting again ---------- */
 let restarting = false

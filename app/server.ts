@@ -7,7 +7,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
-import type { Report } from '../web/report.ts'
+import { renderReport, type Report } from '../web/report.ts'
 import { apply, CUT_SCHEMA, CUT_SYSTEM, cutPrompt, emptyWall, fromCut, GREETING, STEP_NAMES, summary, SYSTEM, toReport, TOOLS, type Cut, type Wall } from './coach.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -214,6 +214,15 @@ const server = createServer(async (req, res) => {
       const [type, data] = assets[url.pathname]
       res.writeHead(200, { 'content-type': type, 'cache-control': 'no-cache' })
       return res.end(data)
+    }
+
+    // The founder's roadmap as one long page, the report's own HTML; the conversation's id is the key to it.
+    const roadmap = req.method === 'GET' && url.pathname.match(/^\/roadmap\/([A-Za-z0-9_-]{22})$/)
+    if (roadmap) {
+      const s = load(roadmap[1]), plan = s?.contact ? readPlan(s.id) : null
+      if (!s?.contact || !plan) return json(res, 404, { error: 'No roadmap here yet.' })
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-frame-options': 'SAMEORIGIN', 'referrer-policy': 'no-referrer' })
+      return res.end(renderReport({ ...plan, founder: { name: s.contact.name } }))
     }
 
     if (req.method === 'POST' && url.pathname === '/api/session') {

@@ -551,8 +551,9 @@ export function mount(opts) {
   }
 
   /** Walk through screens, one at a time: Enter, ↓ or Space for the next, ↑ for the one before, Escape to leave.
-      steps: [{ title, text } | { title, items }]; items are read whole, four to a screen. done(k) runs after the last. */
-  function showTour(steps, { title = '', done = null } = {}) {
+      steps: [{ title, text } | { title, items }]; items are read whole, four to a screen. done(k) runs after the last.
+      at: the screen to open on (-1 for the last, e.g. coming back from where done led); end: what Enter on the last one says. */
+  function showTour(steps, { title = '', done = null, at = 0, end = 'enter to finish' } = {}) {
     const pages = []
     for (const s of steps) {
       if (!s.items) { pages.push(s); continue }
@@ -560,13 +561,13 @@ export function mount(opts) {
       for (let i = 0; i < n; i++) pages.push({ ...s, items: s.items.slice(i * 4, i * 4 + 4), title: n > 1 ? `${s.title} · ${i + 1} of ${n}` : s.title })
     }
     if (!pages.length) return
-    view = 'tour'; list = null; tour = { pages, at: 0, title, done }
+    view = 'tour'; list = null; tour = { pages, at: clamp(at < 0 ? pages.length + at : at, 0, pages.length - 1), title, done, end }
     clearPrompt(); setNote()
     return pageTour()
   }
   function pageTour() {
     const p = tour.pages[tour.at], last = tour.at === tour.pages.length - 1
-    const status = [tour.title, `${tour.at + 1} of ${tour.pages.length}`, last ? 'enter to finish' : 'enter for next', tour.at ? '↑ back' : '', 'esc to leave'].filter(Boolean).join(' · ')
+    const status = [tour.title, `${tour.at + 1} of ${tour.pages.length}`, last ? tour.end : 'enter for next', tour.at ? '↑ back' : '', 'esc to leave'].filter(Boolean).join(' · ')
     return show({ label: p.title || '', whole: true, ...(p.items ? { items: itemEls(p.items) } : { text: p.text }), status, act: () => stepTour(1) })
   }
   function stepTour(d) {
