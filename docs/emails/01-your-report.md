@@ -1,6 +1,6 @@
 ---
-send: the day after the workshop
-to: founders who ticked "Send me my report and follow-up emails"
+send: as soon as the coach has cut the founder's flight plan (the coach sends it)
+to: founders who said yes to "May we email you your report…"
 idea: here is your report
 ---
 
@@ -8,12 +8,10 @@ idea: here is your report
 
 Hi {{name}},
 
-Here's your report from the workshop: **[open your flight plan]({{report_link}})**
+Here's the roadmap you worked out with the coach: **[open your flight plan]({{report_link}})**
 
 It starts from the problems you named, follows them through workarounds, jobs and features, and ends with a flight plan: one waypoint per release, starting at Ground Zero. Open any waypoint to see the features and stories it ships.
 
-An honest note about the tech on the night: the plan was for everyone to install a plugin on their own laptop, and on Windows and the newest macOS that didn't work. That's why this arrived as a link instead. The next version needs nothing but a browser, and that's what you're looking at now.
-
-If anything in the report looks wrong, reply to this email and tell me. It's your plan, not mine.
+The stories and releases are a first cut, made from what you said. If anything in the report looks wrong, reply to this email and tell me. It's your plan, not mine.
 
 {{facilitator}}

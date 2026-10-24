@@ -11,6 +11,16 @@ A web app that runs the first four steps of the v2 workshop (problems → workar
 
 As a founder reaches step 5, the server cuts a first flight plan from their wall: one more model call (`CUT_SYSTEM` in `coach.ts`, with a JSON schema) writes the stories for each feature and cuts them into releases, and `web/report.ts`'s `check()` holds it to the release rules, with one retry if it breaks one. It is saved in `data/plans/<id>.json`, added to the founder's intake as `plan`, and shown to them on screen. If it isn't ready when they leave their email, the thinking holds for up to two minutes; past that, or if it fails, they see their roadmap without it, and the plan shows up on their next visit if it lands. The emailed report is still the facilitator's run, starting from this plan.
 
+## Email
+
+The coach sends its own email through the `smtp` container's relay (Postfix at `10.14.235.25:25`, which relays through iCloud for `db@zero2one.ee`, signed with DKIM). `mail.ts` holds the series and how each email is put together; `server.ts` checks every ten minutes, and straight away when a founder leaves their email or their flight plan lands.
+
+- **To the facilitator** (`FACILITATOR_EMAIL`): one note per finished conversation, with who, what, whether they said yes, and their roadmap link.
+- **To founders who said yes:** the four emails in `docs/emails`. Email 01 goes as soon as the flight plan is cut and links their roadmap website; 02, 03 and 04 follow 3, 4 and 4 days after the one before. Each one ends with a link (`/stop/<id>`) that stops the rest.
+- Only conversations finished after email was switched on (`data/mail/since`) get any, so nobody from before is surprised. What each founder has been sent is in `data/mail/<id>.json` and on the admin page.
+- Settings in `/etc/roadmap-coach.env`: `SMTP_HOST` (no host, no email), `SMTP_PORT`, `FACILITATOR_EMAIL`, and optionally `FACILITATOR` (the name the emails are signed with, default Delaney), `MAIL_FROM`, `PUBLIC_URL`, `BOOKING_LINK` (without it, email 04 asks them to reply to book time).
+- The relay only accepts `db@zero2one.ee` as the sender, so the emails come from there, and replies come back there.
+
 ## Limits (it's free, so it's capped)
 
 | Limit | Value |
@@ -30,9 +40,9 @@ Cost is estimated from each response's token usage at Claude Opus 5.5 prices. Th
 ## Where it runs
 
 - **Container:** `roadmap-coach` on the Hetzner host (`ssh hetzner`), Ubuntu 24.04, Node 24, user `coach`.
-- **Code:** `/opt/roadmap-coach/{app,web}`. Data: `/var/lib/roadmap-coach/data/{sessions,intakes,plans,usage}`.
+- **Code:** `/opt/roadmap-coach/{app,web}`. Data: `/var/lib/roadmap-coach/data/{sessions,intakes,plans,mail,usage}`.
 - **Service:** `systemctl status roadmap-coach`; logs with `journalctl -u roadmap-coach`.
-- **Settings:** `/etc/roadmap-coach.env` (mode 600): `ANTHROPIC_API_KEY`, `ADMIN_KEY`, `DAILY_USD`, `DATA_DIR`, `PORT`.
+- **Settings:** `/etc/roadmap-coach.env` (mode 600): `ANTHROPIC_API_KEY`, `ADMIN_KEY`, `DAILY_USD`, `DATA_DIR`, `PORT`, and the email settings above.
 - **Proxy:** the host's Caddy, `/etc/caddy/roadmap-coach.caddy` (imported from the Caddyfile), with `flush_interval -1` so replies stream.
 
 Ship a change with `app/deploy.sh` from the repo root.

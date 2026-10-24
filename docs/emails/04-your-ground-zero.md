@@ -1,6 +1,6 @@
 ---
-send: 4 days after email 3
-to: founders who ticked "Send me my report and follow-up emails"
+send: 4 days after email 3 (the coach sends it)
+to: founders who said yes to "May we email you your report…"
 idea: your Ground Zero, and an invite to book time
 ---
 

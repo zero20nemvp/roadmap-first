@@ -7,7 +7,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 tarball=$(mktemp -t coach.XXXXXX)
 trap 'rm -f "$tarball"' EXIT
-COPYFILE_DISABLE=1 tar --exclude node_modules --exclude data -czf "$tarball" app web/report.ts web/roadmap.ts web/roadmap.template.html assets/vendor
+COPYFILE_DISABLE=1 tar --exclude node_modules --exclude data -czf "$tarball" app web/report.ts web/roadmap.ts web/roadmap.template.html assets/vendor docs/emails
 scp -q "$tarball" hetzner:/tmp/coach.tgz
 ssh hetzner 'lxc file push -q /tmp/coach.tgz roadmap-coach/tmp/coach.tgz && rm /tmp/coach.tgz &&
   lxc exec roadmap-coach -- bash -c "tar -xzf /tmp/coach.tgz -C /opt/roadmap-coach 2>/dev/null && rm /tmp/coach.tgz &&

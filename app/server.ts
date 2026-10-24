@@ -8,9 +8,11 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gzipSync } from 'node:zlib'
 import Anthropic from '@anthropic-ai/sdk'
+import nodemailer from 'nodemailer'
 import type { Report } from '../web/report.ts'
 import { renderRoadmap } from '../web/roadmap.ts'
 import { apply, CUT_SCHEMA, CUT_SYSTEM, cutPrompt, emptyWall, fromCut, GREETING, STEP_NAMES, summary, SYSTEM, toReport, TOOLS, type Cut, type Wall } from './coach.ts'
+import { due, type Email, facilitatorEmail, type MailLog, parseTemplate, seriesEmail, SERIES, type Template } from './mail.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const DATA = process.env.DATA_DIR ?? join(here, 'data')
@@ -24,8 +26,16 @@ const NEW_PER_HOUR = 6 // per browser
 const NEW_PER_HOUR_IP = 60 // per IP: a venue's wifi puts a whole room behind one
 // $ per token, Claude Opus 5.5
 const PRICE = { input: 4e-6, output: 20e-6, cacheWrite: 5e-6, cacheRead: 0.2e-6 }
+// Email goes out through the smtp container's relay; with no SMTP_HOST nothing is sent.
+const SMTP_HOST = process.env.SMTP_HOST ?? ''
+const SMTP_PORT = Number(process.env.SMTP_PORT ?? 25)
+const FACILITATOR = process.env.FACILITATOR ?? 'Delaney'
+const FACILITATOR_EMAIL = process.env.FACILITATOR_EMAIL ?? 'db@zero2one.ee'
+const MAIL_FROM = process.env.MAIL_FROM ?? `${FACILITATOR} <${FACILITATOR_EMAIL}>`
+const PUBLIC_URL = (process.env.PUBLIC_URL ?? 'https://roadmap.hetzner.zero2one.ee').replace(/\/$/, '')
+const BOOKING_LINK = process.env.BOOKING_LINK ?? ''
 
-for (const d of ['sessions', 'intakes', 'plans', 'usage']) mkdirSync(join(DATA, d), { recursive: true })
+for (const d of ['sessions', 'intakes', 'plans', 'usage', 'mail']) mkdirSync(join(DATA, d), { recursive: true })
 const client = new Anthropic()
 const page = readFileSync(join(here, 'public', 'index.html'), 'utf8')
 // The kiosk kit (~/Code/kiosk-pattern), vendored beside the page
@@ -139,11 +149,63 @@ const cutting = new Map<string, Promise<Report | null>>()
 function planFor(s: Session) {
   let p = cutting.get(s.id)
   if (!p) {
-    p = cutPlan(s).catch(err => { console.error(s.id, 'cut', err); return null }).finally(() => cutting.delete(s.id))
+    p = cutPlan(s).catch(err => { console.error(s.id, 'cut', err); return null }).finally(() => { cutting.delete(s.id); void sendMail() })
     cutting.set(s.id, p)
   }
   return p
 }
+
+/* ---------- email: the founder's series, and a note to the facilitator ---------- */
+const transport = SMTP_HOST ? nodemailer.createTransport({ host: SMTP_HOST, port: SMTP_PORT, secure: false, ignoreTLS: true }) : null
+const templates: Template[] = SERIES.map(({ key }) => {
+  const file = readdirSync(join(here, '..', 'docs', 'emails')).find(f => f.startsWith(key + '-'))!
+  const t = parseTemplate(key, readFileSync(join(here, '..', 'docs', 'emails', file), 'utf8'))
+  // with no booking link, email 04 asks them to reply instead
+  return BOOKING_LINK ? t : { ...t, body: t.body.replace(/book 30 minutes with me: \{\{booking_link\}\}/, 'reply to this email and we’ll find 30 minutes') }
+})
+const mailPath = (id: string) => join(DATA, 'mail', `${id}.json`)
+const readMail = (id: string): MailLog => existsSync(mailPath(id)) ? JSON.parse(readFileSync(mailPath(id), 'utf8')) : { sent: {} }
+const writeMail = (id: string, m: MailLog) => writeFileSync(mailPath(id), JSON.stringify(m))
+// Only founders who leave their email after mail was switched on get it, so nobody from before is surprised.
+const sincePath = join(DATA, 'mail', 'since')
+const MAIL_SINCE = transport ? (existsSync(sincePath) ? readFileSync(sincePath, 'utf8').trim() : (writeFileSync(sincePath, new Date().toISOString()), new Date().toISOString())) : ''
+
+async function deliver(e: Email, extra: Record<string, string> = {}) {
+  await transport!.sendMail({ from: MAIL_FROM, replyTo: FACILITATOR_EMAIL, to: e.to, subject: e.subject, text: e.text, html: e.html, headers: extra })
+}
+
+let mailing = false
+/** Sends whatever is due: run every ten minutes, and as soon as a founder leaves their email or their plan lands. */
+async function sendMail() {
+  if (!transport || mailing) return
+  mailing = true
+  try {
+    for (const f of readdirSync(join(DATA, 'sessions'))) {
+      const s = load(f.slice(0, -5))
+      if (!s?.contact || s.contact.at < MAIL_SINCE) continue
+      const log = readMail(s.id), plan = readPlan(s.id), reportLink = `${PUBLIC_URL}/roadmap/${s.id}`
+      const { name, email, consent } = s.contact
+      try {
+        if (!log.facilitator) {
+          await deliver(facilitatorEmail(FACILITATOR_EMAIL, { name, email, consent, product: s.wall.product?.name ?? '', reportLink, adminLink: `${PUBLIC_URL}/admin`, hasPlan: !!plan }))
+          log.facilitator = new Date().toISOString(); writeMail(s.id, log)
+        }
+        const key = consent && plan ? due(log, Date.now()) : null // email 01 waits for the flight plan it links to
+        if (!key) continue
+        const stopLink = `${PUBLIC_URL}/stop/${s.id}`
+        const vars = { name: name.split(/\s+/)[0], product: s.wall.product?.name ?? 'your product', report_link: reportLink, facilitator: FACILITATOR, booking_link: BOOKING_LINK }
+        await deliver(seriesEmail(templates.find(t => t.key === key)!, email, vars, stopLink), { 'List-Unsubscribe': `<${stopLink}>` })
+        log.sent[key] = new Date().toISOString(); writeMail(s.id, log)
+        console.log(s.id, 'sent email', key)
+      } catch (err) {
+        console.error(s.id, 'mail', err)
+      }
+    }
+  } finally {
+    mailing = false
+  }
+}
+if (transport) { setInterval(() => void sendMail(), 10 * 60_000); setTimeout(() => void sendMail(), 5_000) }
 
 async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
   let raw = ''
@@ -299,7 +361,19 @@ const server = createServer(async (req, res) => {
       writeIntake(s.id)
       // The thinking holds while the flight plan is cut, if it isn't ready yet; past two minutes it shows up on their next visit.
       if (s.wall.step === 5) await Promise.race([planFor(s), new Promise(r => setTimeout(r, 120_000))])
+      void sendMail()
       return json(res, 200, view(s))
+    }
+
+    // The link at the foot of every email: no more of the series.
+    const stop = req.method === 'GET' && url.pathname.match(/^\/stop\/([A-Za-z0-9_-]{22})$/)
+    if (stop) {
+      const s = load(stop[1])
+      if (s?.contact) { const log = readMail(s.id); log.stopped ??= new Date().toISOString(); writeMail(s.id, log) }
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
+      return res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Emails Stopped</title>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0A151E;color:#E7ECF1;font:300 22px/1.5 'IBM Plex Sans',system-ui,sans-serif;padding:16px}p{max-width:30em}small{display:block;margin-top:14px;font:400 13px/1.4 ui-monospace,monospace;color:#7F93A3}</style>
+<p>Done: you won’t get any more of these emails.<small>Your roadmap is still yours at the link you have.</small></p>`)
     }
 
     if (url.pathname.startsWith('/admin')) return admin(url, res)
@@ -310,6 +384,12 @@ const server = createServer(async (req, res) => {
     else res.end()
   }
 })
+
+/** What the founder has been emailed, for the admin page. */
+function mailNote(id: string) {
+  const log = readMail(id), sent = Object.keys(log.sent)
+  return (sent.length ? `<br>emailed ${sent.join(', ')}` : '') + (log.stopped ? ' · stopped' : '')
+}
 
 function admin(url: URL, res: ServerResponse) {
   const key = Buffer.from(url.searchParams.get('key') ?? '')
@@ -326,7 +406,7 @@ function admin(url: URL, res: ServerResponse) {
   const k = encodeURIComponent(url.searchParams.get('key')!)
   const rows = readdirSync(join(DATA, 'sessions')).map(f => load(f.slice(0, -5))!).filter(Boolean)
     .sort((a, b) => b.updated.localeCompare(a.updated))
-    .map(s => `<tr><td>${esc(s.updated.slice(0, 16).replace('T', ' '))}</td><td>${esc(s.contact?.name ?? '—')}<br><small>${esc(s.contact?.email ?? '')}${s.contact?.consent ? ' ✓ consent' : ''}</small></td>
+    .map(s => `<tr><td>${esc(s.updated.slice(0, 16).replace('T', ' '))}</td><td>${esc(s.contact?.name ?? '—')}<br><small>${esc(s.contact?.email ?? '')}${s.contact?.consent ? ' ✓ consent' : ''}${mailNote(s.id)}</small></td>
       <td>${esc(s.wall.product?.name ?? '—')}</td><td>${s.wall.step} ${STEP_NAMES[s.wall.step]}</td><td>${s.turns}</td><td>$${s.usd.toFixed(2)}</td>
       <td><a href="/admin/session/${s.id}.json?key=${k}">transcript</a>${s.contact ? ` · <a href="/admin/intake/${s.id}.json?key=${k}">intake</a>` : ''}${existsSync(planPath(s.id)) ? ` · <a href="/admin/plan/${s.id}.json?key=${k}">flight plan</a>` : ''}</td></tr>`).join('')
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
