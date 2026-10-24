@@ -28,9 +28,15 @@ html,body{height:100%;margin:0;overflow:hidden;background:#111111}
 </head>
 <body>
 <a class="mark" href="https://zero2one.ee" target="_blank" rel="noopener" aria-label="zero2one"><img src="/zero2one.svg" alt="zero2one"></a>
+<script>
+// Phones aren't supported yet: say so, and don't start the coach. A touch screen narrower than 600px counts as a phone.
+window.PHONE = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600
+if (window.PHONE) document.write('<div style="position:fixed;inset:0;display:flex;align-items:center;padding:32px;box-sizing:border-box;color:#EFEDE6;font:400 19px/1.5 Inter,system-ui,sans-serif"><div><p style="margin:0 0 14px;font-weight:600">Roadmap First runs on a laptop or desktop.</p><p style="margin:0 0 14px;opacity:.75">It doesn’t work on phones yet. Open this link on your computer to start:</p><p style="margin:0;font-family:\'JetBrains Mono\',ui-monospace,monospace;color:#E68A5C">' + location.host + '</p></div></div>')
+</script>
 <script type="module">
 // The coach on the kiosk kit (kiosk.js, from ~/Code/kiosk-pattern): this file is only what the coach says and means.
 import { mount } from '/kiosk.js'
+if (window.PHONE) throw new Error('phones are not supported yet')
 
 let state = null   // the server's view: id, step, steps, wall, chat, done, contacted, trashed
 let contact = null // the end: { stage: 'name' | 'email' | 'code' | 'consent', name, email }
