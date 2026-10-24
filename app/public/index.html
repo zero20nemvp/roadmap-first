@@ -3,25 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
-<meta name="theme-color" content="#0A151E">
-<link rel="icon" href="data:,">
-<title>Roadmap-first coach</title>
+<meta name="theme-color" content="#111111">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<title>Roadmap-first coach · zero2one</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/kiosk.css">
 <style>
-html,body{height:100%;margin:0;overflow:hidden;background:#0A151E}
+html,body{height:100%;margin:0;overflow:hidden;background:#111111}
+/* zero2one's wordmark, quiet in the corner: it lights on hover and leads to zero2one.ee */
+.mark{position:fixed;top:max(18px,env(safe-area-inset-top));left:22px;z-index:5;opacity:.42;transition:opacity .3s ease}
+.mark:hover,.mark:focus-visible{opacity:1}
+.mark img{height:30px;width:auto;display:block}
+@media (max-width:520px){.mark{left:16px}.mark img{height:24px}}
 /* The roadmap as one long page, rising over the kiosk; back and Escape return to the flow */
 .roadmap{position:fixed;inset:0;z-index:50;background:#0E1116;opacity:0;transform:translateY(28px) scale(.985);transition:opacity .45s cubic-bezier(.25,1,.35,1),transform .55s cubic-bezier(.25,1,.35,1)}
 .roadmap.open{opacity:1;transform:none}
 .roadmap iframe{border:0;width:100%;height:100%;display:block}
 .roadmap nav{position:fixed;top:16px;left:16px;right:16px;display:flex;justify-content:space-between;gap:12px;pointer-events:none}
-.roadmap nav>*{pointer-events:auto;font:400 12px/1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.04em;color:#CFE3EE;background:rgba(10,21,30,.82);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:10px 14px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);cursor:pointer;text-decoration:none}
-.roadmap nav>*:hover{border-color:rgba(120,210,255,.5)}
+.roadmap nav>*{pointer-events:auto;font:400 12px/1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.04em;color:#EFEDE6;background:rgba(17,17,17,.82);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:10px 14px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);cursor:pointer;text-decoration:none}
+.roadmap nav>*:hover{border-color:rgba(230,138,92,.6)}
 @media (max-width:520px){.roadmap nav a{display:none}}
 </style>
 </head>
 <body>
+<a class="mark" href="https://zero2one.ee" target="_blank" rel="noopener" aria-label="zero2one"><img src="/zero2one.svg" alt="zero2one"></a>
 <script type="module">
 // The coach on the kiosk kit (kiosk.js, from ~/Code/kiosk-pattern): this file is only what the coach says and means.
 import { mount } from '/kiosk.js'
@@ -398,6 +404,8 @@ const k = mount({
   hint: 'roadmap-first coach · one question at a time · the answers are yours',
   // the send dims the screen and grows the first ball, the landing's flash the other way round
   animation: { send: 'dim' },
+  // zero2one's colours (zero2one.ee): near-black ground, the coral accent for your words and the thinking, warm white text
+  theme: { ground: '#141414', deep: '#050505', text: '#EFEDE6', dim: '#A8A8A8', faint: '#6E6E6E', mine: '#E68A5C', rule: '#2D2D2D', vignette: '#000000', flash: '#FFF4EC', shade: '#000000' },
   ask, status, history: exchanges,
   statusAction: () => state?.contacted && state.done ? () => showRoadmap(k) : hasWall() ? () => openWall(k) : null,
   commands: [

@@ -50,8 +50,8 @@ export function toText(md: string): string {
 export function toHtml(md: string): string {
   const inline = (s: string) => esc(s)
     .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, t, u) => `<a href="${u}" style="color:#1F4FE0">${t}</a>`)
-    .replace(/(^|\s)(https?:\/\/[^\s<]+)/g, '$1<a href="$2" style="color:#1F4FE0">$2</a>')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, t, u) => `<a href="${u}" style="color:#C15F3C">${t}</a>`)
+    .replace(/(^|\s)(https?:\/\/[^\s<]+)/g, '$1<a href="$2" style="color:#C15F3C">$2</a>')
     .replace(/\n/g, '<br>')
   const blocks = md.split(/\n\s*\n/).map(b => {
     const lines = b.split('\n')

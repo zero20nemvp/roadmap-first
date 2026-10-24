@@ -47,6 +47,9 @@ const page = readFileSync(join(here, 'public', 'index.html'), 'utf8')
 const assets: Record<string, [string, Buffer]> = {
   '/kiosk.js': ['text/javascript; charset=utf-8', readFileSync(join(here, 'public', 'kiosk.js'))],
   '/kiosk.css': ['text/css; charset=utf-8', readFileSync(join(here, 'public', 'kiosk.css'))],
+  // zero2one's mark, from zero2one.ee: the tab icon, and the wordmark in the kiosk's corner
+  '/favicon.svg': ['image/svg+xml', readFileSync(join(here, 'public', 'favicon.svg'))],
+  '/zero2one.svg': ['image/svg+xml', readFileSync(join(here, 'public', 'zero2one.svg'))],
   // the roadmap website's libraries (three.js, GSAP, ScrollTrigger, d3), as one cached script
   '/roadmap-vendor.js': ['text/javascript; charset=utf-8', Buffer.from(['three.min.js', 'gsap.min.js', 'ScrollTrigger.min.js', 'd3.min.js']
     .map(f => readFileSync(join(here, '..', 'assets', 'vendor', f), 'utf8')).join('\n;\n'))],
@@ -494,8 +497,8 @@ const server = createServer(async (req, res) => {
       const s = load(stop[1])
       if (s?.contact) { const log = readMail(s.id); log.stopped ??= new Date().toISOString(); writeMail(s.id, log) }
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
-      return res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Emails Stopped</title>
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0A151E;color:#E7ECF1;font:300 22px/1.5 'IBM Plex Sans',system-ui,sans-serif;padding:16px}p{max-width:30em}small{display:block;margin-top:14px;font:400 13px/1.4 ui-monospace,monospace;color:#7F93A3}</style>
+      return res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Emails Stopped</title><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#111111;color:#EFEDE6;font:300 22px/1.5 'IBM Plex Sans',system-ui,sans-serif;padding:16px}p{max-width:30em}small{display:block;margin-top:14px;font:400 13px/1.4 ui-monospace,monospace;color:#A8A8A8}</style>
 <p>Done: you won’t get any more of these emails.<small>Your roadmap is still yours at the link you have.</small></p>`)
     }
 
