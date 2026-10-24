@@ -396,6 +396,8 @@ async function finish(consent) {
 const k = mount({
   invite: 'What are you building, and who is it for?',
   hint: 'roadmap-first coach · one question at a time · the answers are yours',
+  // the send dims the screen and grows the first ball, the landing's flash the other way round
+  animation: { send: 'dim' },
   ask, status, history: exchanges,
   statusAction: () => state?.contacted && state.done ? () => showRoadmap(k) : hasWall() ? () => openWall(k) : null,
   commands: [

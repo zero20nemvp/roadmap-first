@@ -5,9 +5,9 @@
 
 .kiosk{
   --ground:#0A151E; --deep:#060D13; --text:#E6EEF3; --dim:#8CA3B2; --faint:#6E8798;
-  --mine:#3FC2F0; --live:#4FD08A; --warn:#E0B057; --bad:#F0736F; --rule:#243B4A; --vignette:#03080C; --flash:#FFFFFF;
+  --mine:#3FC2F0; --live:#4FD08A; --warn:#E0B057; --bad:#F0736F; --rule:#243B4A; --vignette:#03080C; --flash:#FFFFFF; --shade:#010407;
   /* the same colours as r,g,b, for glows and the canvas; kiosk.js keeps them in step when a theme sets a hex */
-  --mine-rgb:63,194,240; --live-rgb:79,208,138; --bad-rgb:240,115,111; --vignette-rgb:3,8,12; --flash-rgb:255,255,255;
+  --mine-rgb:63,194,240; --live-rgb:79,208,138; --bad-rgb:240,115,111; --vignette-rgb:3,8,12; --flash-rgb:255,255,255; --shade-rgb:1,4,7;
   --sans:"IBM Plex Sans", -apple-system, "SF Pro Display", system-ui, sans-serif;
   --mono:"JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
   --u:1px; --frame:1180px; --col:900px;

@@ -23,11 +23,11 @@ export const THEMES = {
   gist: {},
   dawn: {
     ground: '#F4F0E8', deep: '#E7E1D5', text: '#1B2430', dim: '#4A5866', faint: '#7A8591',
-    mine: '#2B6CB0', live: '#2F8F5B', warn: '#B7791F', bad: '#C53030', rule: '#D6CFC0', vignette: '#B8AE9C', flash: '#2B6CB0',
+    mine: '#2B6CB0', live: '#2F8F5B', warn: '#B7791F', bad: '#C53030', rule: '#D6CFC0', vignette: '#B8AE9C', flash: '#2B6CB0', shade: '#1B2430',
   },
   ember: {
     ground: '#1A1210', deep: '#0E0907', text: '#F3E9E2', dim: '#B9A69A', faint: '#8C786C',
-    mine: '#F2A65A', live: '#9BD77E', warn: '#F2D25A', bad: '#F0736F', rule: '#3A2A22', vignette: '#060302',
+    mine: '#F2A65A', live: '#9BD77E', warn: '#F2D25A', bad: '#F0736F', rule: '#3A2A22', vignette: '#060302', shade: '#060302',
   },
 }
 
@@ -85,6 +85,25 @@ export const ANIMATIONS = {
         const k = clamp((p - .86) / .14)
         g.bloom(tx, ty, g.rgb('flash'), .34, .10 * diag, t - .86 * g.motion.send, .5)
         g.ring(tx, ty, bd / 2 + 400 * U * k, 2.4 * U, `rgba(${c},${Math.pow(1 - k, 1.8) * .48})`, 21 * U)
+      }
+      return true
+    },
+    /** The landing's flash, the other way: the screen dims, and the first ball grows in on the floor as it lifts. */
+    dim(g, t) {
+      const { U, W, H } = g, p = clamp(t / g.motion.send), s = g.rgb('shade'), bd = 43.5 * U
+      // the dim: in fast, held a moment, out slowly behind the ball
+      const e = p < .12 ? easeOut(p / .12) : p < .32 ? 1 : 1 - easeInOut(clamp((p - .32) / .68))
+      const deep = g.reduced ? .3 : .6
+      g.cx.fillStyle = `rgba(${s},${deep * .75 * e})`; g.cx.fillRect(0, 0, W, H)
+      const gr = g.cx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, .6 * Math.hypot(W, H))
+      gr.addColorStop(0, `rgba(${s},${deep * .35 * e})`); gr.addColorStop(1, `rgba(${s},0)`)
+      g.cx.fillStyle = gr; g.cx.fillRect(0, 0, W, H)
+      // the ball: grows from nothing to its place, with a little give (none when motion is reduced)
+      const k = clamp((p - .36) / .64)
+      if (k > 0) {
+        const back = 1.1, j = k - 1
+        const sc = g.reduced ? 1 : 1 + (back + 1) * j * j * j + back * j * j
+        g.ball(g.rgb('mine'), g.ball0, g.floor, bd * sc, bd * sc, g.reduced ? easeOut(k) : Math.min(1, k * 3))
       }
       return true
     },
@@ -187,7 +206,7 @@ const rgbOf = hex => { const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exe
  *   clean(text)          tidy a reply before it is set (default strips markdown marks).
  * opts, how it looks:
  *   theme                a THEMES name, or tokens: { mine: '#hex', ground, deep, text, dim, faint, live, warn, bad, rule,
- *                        vignette, flash, sans, mono }, or { base: 'dawn', mine: '#…' } to change a few.
+ *                        vignette, flash, shade, sans, mono }, or { base: 'dawn', mine: '#…' } to change a few.
  *   background           a BACKGROUNDS name, or el => { … } to fill the layer behind the plane yourself.
  *   animation            { send, think, land, fail }: an ANIMATIONS name or your own (g, t) => more.
  *   motion               any of MOTION's timings.
@@ -418,7 +437,7 @@ export function mount(opts) {
     const g = {
       cx, streaks, motion: M, reduced: REDUCED, ease: { out: easeOut, inOut: easeInOut }, lerp, clamp,
       /** A colour token as "r,g,b": rgb('mine'), rgb('flash'), rgb('bad'). */
-      rgb: name => css.getPropertyValue(`--${name}-rgb`).trim() || '255,255,255',
+      rgb: name => css.getPropertyValue(`--${name}-rgb`).trim() || (name === 'shade' ? '0,0,0' : '255,255,255'),
       blur, fill: c => { cx.fillStyle = `rgb(${c})` },
       /** A rounded bar centred on y. */
       pill(x, y, bw, bh, a) { cx.globalAlpha = a; cx.beginPath(); cx.roundRect(x, y - bh / 2, bw, bh, bh / 2); cx.fill(); cx.globalAlpha = 1 },
