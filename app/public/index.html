@@ -51,7 +51,7 @@ const hasWall = () => !!(state && (state.wall.product?.name || counts(state.wall
 
 function status() {
   if (!state) return ''
-  if (state.contacted) return 'enter to see your roadmap' + (state.plan ? ' and flight plan' : '') + ' · /new to start again'
+  if (state.contacted) return state.plan ? 'enter to walk your roadmap · /roadmap for the report · /new to start again' : 'enter to see your roadmap · /new to start again'
   if (state.done) return 'the four steps are done · your report is next'
   const c = counts(state.wall)
   const where = state.step === 0 ? 'getting started' : `step ${state.step} of 4 · ${state.steps[state.step].toLowerCase()}`
@@ -255,9 +255,10 @@ const k = mount({
   ask, status, history: exchanges,
   statusAction: () => state?.contacted ? () => showRoadmap(k) : hasWall() ? () => openWall(k) : null,
   commands: [
-    { name: '/wall', hint: 'what you’ve said so far, step by step', run: openWall },
-    { name: '/roadmap', hint: 'your roadmap and flight plan, once you’re done', run: k => state?.contacted ? showRoadmap(k) : k.note('said', 'Your roadmap is ready once the four steps are done and you’ve left your email.') },
-    { name: '/new', hint: 'start a new conversation', run: askNew },
+    { name: '/wall', hint: 'what you’ve said so far, step by step', run: openWall, when: hasWall },
+    // offered only once there's a report to show: the four steps done, the email left, the flight plan cut
+    { name: '/roadmap', hint: 'your roadmap report, with the flight plan', run: () => openPage(null), when: () => !!(state?.contacted && state.plan) },
+    { name: '/new', hint: 'start a new conversation', run: askNew, when: () => state?.chat.length > 1 },
   ],
   intercept: async text => {
     if (restarting) {

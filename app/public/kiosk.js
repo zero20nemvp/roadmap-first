@@ -179,7 +179,7 @@ const rgbOf = hex => { const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exe
  *   status()             the quiet line under each reply (where we are, what is noted).
  *   statusAction()       what tapping the status line does on a reply, or null.
  *   history()            [{ echo, text }] oldest first, for ↑. The last one is the reply on screen.
- *   commands             [{ name: '/wall', hint: '…', run(k) }]. Type / to see them.
+ *   commands             [{ name: '/wall', hint: '…', run(k), when() }]. Type / to see them; when(), if given, says whether it's offered now.
  *   intercept(text, k)   take Enter before ask (a form asked one screen at a time); return true if taken.
  *   escape(k)            take Escape when nothing is typed; return true if taken.
  *   after(result, k)     after a reply has landed.
@@ -213,7 +213,9 @@ export function mount(opts) {
   const q = s => root.querySelector(s)
   const ta = q('textarea'), plane = q('.k-plane'), block = q('.k-block'), rowsEl = q('.k-rows'), note = q('.k-note'), echoEl = q('.k-echo'), statusEl = q('.k-status'), cmdEl = q('.k-commands')
   ta.setAttribute('aria-label', opts.label || 'Your answer')
-  const commands = opts.commands || []
+  const all = opts.commands || []
+  /** The commands offered right now: those with no when(), or whose when() says yes. */
+  const offered = () => all.filter(c => !c.when || c.when())
   const clean = opts.clean || (t => t.replace(/\*\*(.+?)\*\*/g, '$1').replace(/__(.+?)__/g, '$1').replace(/^#+\s*/gm, '').replace(/^\s*[-*]\s+/gm, '• '))
 
   /* ---------- theme and background ---------- */
@@ -355,7 +357,7 @@ export function mount(opts) {
     ta.style.height = ta.scrollHeight + 'px'
   }
 
-  const matching = () => { const t = ta.value.trim().toLowerCase(); return t.startsWith('/') ? commands.filter(c => c.name.startsWith(t)) : [] }
+  const matching = () => { const t = ta.value.trim().toLowerCase(); return t.startsWith('/') ? offered().filter(c => c.name.startsWith(t)) : [] }
 
   function onInput() {
     const t = ta.value
@@ -600,10 +602,11 @@ export function mount(opts) {
   async function act() {
     if (busy) return
     const text = ta.value.trim()
-    if (text.startsWith('/') && commands.length) {
+    const commands = offered()
+    if (text.startsWith('/') && all.length) {
       const m = matching()
       if (m.length && text.length > 1) return runCommand(m[cmdAt] || m[0])
-      return setNote('err', `Commands: ${commands.map(c => c.name).join(', ')}. Everything else, just say.`)
+      return setNote('err', commands.length ? `Commands: ${commands.map(c => c.name).join(', ')}. Everything else, just say.` : 'No commands yet. Just say it.')
     }
     if (!text && view === 'tour') return stepTour(1)
     if (opts.intercept && await opts.intercept(text, api)) return
